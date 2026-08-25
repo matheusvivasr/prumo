@@ -59,13 +59,21 @@ fácil de acabar com uma `HPPrimeAutomator` disfarçada de `GUIAutomator`.
   uma); **2 pontos resolvem exato mas não expõem ruído** (uma leitura de mouse
   fora do centro em 1 dos 2 pontos define a reta inteira sem contradição
   aparente); a solução foi **4 pontos nos cantos opostos + mínimos quadrados**
-  (`KEYPAD_LEFT/TOP/WIDTH/HEIGHT_FRACTION` em `HpPrimeCalculator`) — qualquer
-  leitura ruim de 1 ponto aparece como resíduo alto contra os outros 3. Resíduo
-  final: ≤0.5px entre os 4 pontos, overlay das 51 teclas confirmado
-  centralizado. Ainda não houve um `press_key()` clicando de verdade (só
-  leitura de posição via `GetCursorPos` e overlay visual) — próximo consumidor
-  real que quiser confiar cegamente deve confirmar isso antes de rodar macro
-  sem supervisão.
+  — qualquer leitura ruim de 1 ponto aparece como resíduo alto contra os
+  outros 3. Ainda faltava uma peça: o teclado da HP Prime **não é uma grade
+  única** — o aglomerado de cima (Apps/Symb/Plot/Help/View/Menu/Home/Esc/CAS
+  + disco de navegação) é separado da grade principal por um espaço não-
+  proporcional, então uma calibração ajustada só pela grade principal
+  extrapolava pra cima com viés. Resolvido calibrando as **duas zonas
+  separadamente** (`MAIN_*`/`UPPER_*_FRACTION` em `HpPrimeCalculator`,
+  `_zone_bounds()` escolhe pela fração y do locator) — 4 pontos por zona,
+  mesmo método. Resíduo final: ≤0.5px na grade principal, ≤3px na zona de
+  cima (menor, mais sensível, ainda bem dentro do botão). Overlay das 51
+  teclas confirmado centralizado nas duas zonas. Ainda não houve um
+  `press_key()` clicando de verdade (só leitura de posição via
+  `GetCursorPos` e overlay visual) — próximo consumidor real que quiser
+  confiar cegamente deve confirmar isso antes de rodar macro sem
+  supervisão.
 
 ## Nota de migração — `hp-prime-automation`
 
