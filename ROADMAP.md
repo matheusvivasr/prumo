@@ -48,26 +48,24 @@ fácil de acabar com uma `HPPrimeAutomator` disfarçada de `GUIAutomator`.
 - [ ] **Etapa 10 — Transações.** `with calc.transaction(): ...` já existe em
   `GUIAutomator` (Etapa 1) e `HpPrimeCalculator` herda; nenhuma macro real usa ainda.
 - [~] **Etapa 11 — End-to-end.** Geometria validada em 25/08/2026 contra a HP Prime
-  real, em duas rodadas. **Primeira rodada** (print + overlay das 51 teclas via
-  `MockDriver`): encontrou e corrigiu dois bugs reais que só apareceriam rodando
-  contra a aplicação — título configurado (`"HP Prime Virtual Calculator"`) não
-  batia com o real (`"HP Prime"`), e os locators são relativos ao **teclado**, não à
-  janela inteira. Mas o overlay saiu sistematicamente descentrado (offset fixo
-  `(22,17)` acertava a Enter e errava a Apps — sinal de erro de **escala**, não só
-  de deslocamento). **Segunda rodada**: leitura direta de `GetCursorPos` (só
-  leitura, sem `computer-use`) sobre o centro real de duas teclas em cantos opostos
-  (ENTR, APPS), resolvendo o sistema linear fração→pixel pros dois eixos —
-  substituiu o offset fixo por 4 constantes calibradas
-  (`KEYPAD_LEFT/TOP/WIDTH/HEIGHT_FRACTION`). **Terceira rodada**: a 1ª leitura de
-  ENTR (1309,546) tinha o mouse levemente fora do centro — dava
-  `KEYPAD_WIDTH_FRACTION > 1.0` (teclado "mais largo que a janela", estranho
-  fisicamente). Releitura (1281,546) resolveu: teclado em ~96% da largura da
-  janela, e o overlay final cai centralizado nas 51 teclas, incluindo a própria
-  Enter. Lição registrada no docstring de `HpPrimeCalculator`: desconfiar de
-  `WIDTH/HEIGHT_FRACTION > 1.0` como sinal de leitura imprecisa, não de bug.
-  Ainda não houve um `press_key()` clicando de verdade (só leitura de posição e
-  overlay visual) — próximo consumidor real que quiser confiar cegamente deve
-  confirmar isso antes de rodar macro sem supervisão.
+  real. No caminho, encontrou e corrigiu dois bugs reais que só apareceriam
+  rodando contra a aplicação: título configurado
+  (`"HP Prime Virtual Calculator"`) não batia com o real (`"HP Prime"`); e os
+  locators são relativos ao **teclado**, não à janela inteira (`window.geometry()`
+  direto teria clicado no display). A calibração do teclado em si passou por
+  três tentativas até ficar confiável — registrado porque é uma lição genérica de
+  metodologia, não só deste app: **overlay visual + offset fixo mascara erro de
+  escala** (um offset acerta uma tecla e erra outra, e "parece certo" olhando só
+  uma); **2 pontos resolvem exato mas não expõem ruído** (uma leitura de mouse
+  fora do centro em 1 dos 2 pontos define a reta inteira sem contradição
+  aparente); a solução foi **4 pontos nos cantos opostos + mínimos quadrados**
+  (`KEYPAD_LEFT/TOP/WIDTH/HEIGHT_FRACTION` em `HpPrimeCalculator`) — qualquer
+  leitura ruim de 1 ponto aparece como resíduo alto contra os outros 3. Resíduo
+  final: ≤0.5px entre os 4 pontos, overlay das 51 teclas confirmado
+  centralizado. Ainda não houve um `press_key()` clicando de verdade (só
+  leitura de posição via `GetCursorPos` e overlay visual) — próximo consumidor
+  real que quiser confiar cegamente deve confirmar isso antes de rodar macro
+  sem supervisão.
 
 ## Nota de migração — `hp-prime-automation`
 
