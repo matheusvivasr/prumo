@@ -310,6 +310,20 @@ x, y = zone.resolve(algum_outro_locator)
 Âncora não encontrada levanta `LocatorError` — nunca clica às cegas quando o template
 para de bater (tema mudou, fonte mudou, layout mudou o suficiente).
 
+### 9.3. `GUIAutomator.color_at` / `color_matches`
+
+Leitura de pixel (decisão simples: indicador verde/vermelho, luz acesa/apagada) é
+comum o bastante pra estar no `GUIAutomator` em vez de cada aplicação reimplementar:
+
+```python
+r, g, b = automator.color_at("indicador_status")
+automator.color_matches("indicador_status", (0, 255, 0), tolerance=10)  # -> bool
+```
+
+Os dois chamam `self.resolve(name)` — uma subclasse que resolve locators de outro
+jeito (§9.2, `AnchorZone` por exemplo) herda `color_at`/`color_matches` de graça, só
+precisa sobrescrever `resolve()`.
+
 ---
 
 ## 10. Máquina de estados
@@ -331,6 +345,27 @@ class StateManager:
     def detect(self) -> GUIState: ...
     def wait_for(self, state: GUIState, timeout: float): ...
 ```
+
+### 10.1. `color_based_detector` — detecção de estado por indicador visual
+
+A forma mais comum de detectar estado numa GUI real é olhar um indicador (uma bolinha
+verde/vermelha, um ícone que muda). `core.state.color_based_detector` fabrica um
+`state_detector` pronto pra plugar no `GUIAutomator` a partir de um mapa cor→estado:
+
+```python
+detector = color_based_detector(
+    color_at=lambda: automator.color_at("indicador_status"),
+    color_states={(0, 255, 0): GUIState.READY, (255, 0, 0): GUIState.ERROR},
+    tolerance=10,
+    default=GUIState.UNKNOWN,
+)
+```
+
+`color_at` é qualquer callable sem argumento — normalmente
+`automator.color_at(locator)` (§9.3), passado como referência depois que o automator
+já existe (evita depender de `self` dentro do próprio `__init__`). Nenhuma cor bate
+dentro da tolerância → `default` (nunca inventa READY quando o estado é desconhecido —
+§1.5).
 
 ---
 
@@ -481,7 +516,9 @@ abrir aplicação → localizar janela → selecionar locator → usuário posic
 ```
 
 Mapeia `POINT` e `REGION` hoje; futuramente `STATE INDICATOR`, `POPUP`, `BUTTON`,
-`DISPLAY`.
+`DISPLAY`. Um `POINT` pode opcionalmente virar **âncora**: recorta um PNG (~32×32px em
+torno do ponto) em `templates/{nome}.png`, ao lado do JSON de saída — pronto pra usar
+em `Anchor`/`AnchorZone` (§9.2) sem precisar montar o recorte na mão.
 
 ## 19. Validador do mapa
 

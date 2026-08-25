@@ -12,7 +12,7 @@ from __future__ import annotations
 import itertools
 import logging
 from contextlib import contextmanager
-from typing import Callable, Dict, Iterator, Mapping, Optional
+from typing import Callable, Dict, Iterator, Mapping, Optional, Tuple
 
 from prumo.core.events import InterruptionManager
 from prumo.core.exceptions import AutomationTimeoutError, LocatorError
@@ -106,6 +106,25 @@ class GUIAutomator:
         self.precheck()
         logger.info("op=%s action=write(%r)", op, text)
         self.driver.write(text)
+
+    # --- leitura de pixel (decisões simples: indicador verde/vermelho...) -
+
+    def color_at(self, locator_name: str) -> Tuple[int, int, int]:
+        """Cor (r, g, b) do pixel em `locator_name`. Usa `self.resolve()` —
+        uma subclasse que resolve locators de outro jeito (ex.: por âncora
+        de imagem, ver `core.anchors.AnchorZone`) herda isso de graça."""
+        self.precheck()
+        x, y = self.resolve(locator_name)
+        pixel = self.driver.screenshot(region=(x, y, 1, 1))
+        r, g, b = pixel.getpixel((0, 0))[:3]
+        return (r, g, b)
+
+    def color_matches(
+        self, locator_name: str, expected: Tuple[int, int, int], *, tolerance: int = 10
+    ) -> bool:
+        r, g, b = self.color_at(locator_name)
+        er, eg, eb = expected
+        return abs(r - er) <= tolerance and abs(g - eg) <= tolerance and abs(b - eb) <= tolerance
 
     # --- transação --------------------------------------------------------
 

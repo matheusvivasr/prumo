@@ -17,6 +17,15 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
   problema real: a HP Prime tem mais de um modo de layout (não é o mesmo arranjo
   escalado), e toda calibração por fração fixa quebrava ao trocar de modo. Testado
   (`tests/unit/test_anchors.py`, `test_mock_driver.py`) sem precisar de tela real.
+- `GUIAutomator.color_at`/`color_matches` (§9.3) — também promovidos do
+  `hp-prime-automation`; usam `self.resolve()`, então uma subclasse que resolve
+  locators de outro jeito (`AnchorZone`, por exemplo) herda de graça, só precisa
+  sobrescrever `resolve()`.
+- `core.state.color_based_detector` (§10.1) — fábrica de `state_detector` a partir de
+  um mapa cor→estado, pra plugar direto no `GUIAutomator`. Ainda sem consumidor real
+  (nenhuma aplicação tem indicador calibrado ainda) — testado isoladamente.
+- `tools/mapper.py` ganha captura de âncora: um `POINT` pode virar template PNG
+  (`templates/{nome}.png`) na hora, sem precisar montar o recorte na mão depois.
 
 ### Pendente
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 from enum import Enum, auto
-from typing import Callable
+from typing import Callable, Dict, Tuple
 
 from prumo.core.exceptions import AutomationTimeoutError
 
@@ -51,3 +51,36 @@ class StateManager:
             time.sleep(self.poll_interval)
             current = self.detect()
         return current
+
+
+def color_based_detector(
+    *,
+    color_at: Callable[[], Tuple[int, int, int]],
+    color_states: Dict[Tuple[int, int, int], GUIState],
+    tolerance: int = 10,
+    default: GUIState = GUIState.UNKNOWN,
+) -> Callable[[], GUIState]:
+    """Fábrica de `state_detector` a partir de um indicador visual — a
+    forma mais comum de detecção de estado numa GUI real (§16, nota sobre
+    "indicador de status" nas aplicações que já usam isso).
+
+    `color_at` é qualquer callable sem argumento que devolve (r, g, b) —
+    tipicamente `automator.color_at("nome_do_locator")` (ver
+    `GUIAutomator.color_at`), passado como referência depois que o
+    automator já existe. `color_states` mapeia cor esperada -> estado; a
+    primeira que bater dentro da tolerância vence. Nenhuma bate -> `default`
+    (UNKNOWN por padrão — estado desconhecido nunca deve ser confundido com
+    READY, ver ARCHITECTURE.md §1.5).
+    """
+
+    def _matches(a: Tuple[int, int, int], b: Tuple[int, int, int]) -> bool:
+        return all(abs(x - y) <= tolerance for x, y in zip(a, b))
+
+    def detector() -> GUIState:
+        cor = color_at()
+        for esperada, estado in color_states.items():
+            if _matches(cor, esperada):
+                return estado
+        return default
+
+    return detector

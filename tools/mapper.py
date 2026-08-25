@@ -3,14 +3,21 @@
 Ferramenta de desenvolvimento, fora da biblioteca principal: ajuda a
 capturar locators (POINT e REGION) de uma aplicação real, já convertidos
 para relativo à janela, e salva no formato de configuração de
-`prumo.config`.
+`prumo.config`. Também captura **âncoras de imagem** para
+`core.anchors.AnchorZone` (§9.2) — um recorte PNG em torno de um ponto,
+usado por `InputDriver.locate_on_screen` pra achar esse ponto na tela sem
+depender de `window.geometry()`.
 
 Uso:
     python tools/mapper.py "Título da Janela" saida.json
 
 Fluxo: informe o título (substring) da janela já aberta; posicione o mouse
 sobre o ponto desejado e pressione ENTER para capturar; dê um nome ao
-locator; repita; digite 'sair' para encerrar e salvar o JSON.
+locator; repita; digite 'sair' para encerrar e salvar o JSON. Locators do
+tipo 'point' podem opcionalmente virar âncora (recorte salvo em
+`templates/{nome}.png`, ao lado do JSON de saída) — use pra qualquer ponto
+que vá servir de âncora de `AnchorZone` (ver ARCHITECTURE.md §9.2: 2 por
+zona, em cantos opostos, texto/ícone curto e visualmente único).
 """
 
 from __future__ import annotations
@@ -24,12 +31,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from prumo.drivers.window import WindowManager  # noqa: E402
 
+TEMPLATE_MARGIN = 16  # recorte de (2*margem)x(2*margem)px em torno do ponto
+
 
 def _capture_point() -> Tuple[int, int]:
     import pyautogui
 
     input("Posicione o mouse e pressione ENTER para capturar...")
     return pyautogui.position()
+
+
+def _capture_template(point: Tuple[int, int], name: str, templates_dir: Path) -> Path:
+    """Recorta um PNG em torno de `point` (coordenada absoluta de tela) e
+    salva em `templates_dir/{name}.png`. Requer Pillow (dependência do
+    pyautogui, já presente)."""
+    import pyautogui
+    from PIL import Image
+
+    templates_dir.mkdir(parents=True, exist_ok=True)
+    screenshot = pyautogui.screenshot()
+    x, y = point
+    box = (x - TEMPLATE_MARGIN, y - TEMPLATE_MARGIN, x + TEMPLATE_MARGIN, y + TEMPLATE_MARGIN)
+    crop: Image.Image = screenshot.crop(box)
+    path = templates_dir / f"{name}.png"
+    crop.save(path)
+    return path
 
 
 def _to_relative(point: Tuple[int, int], window: WindowManager) -> Tuple[float, float]:
@@ -75,6 +101,12 @@ def main() -> None:
             abs_point = _capture_point()
             rel_x, rel_y = _to_relative(abs_point, window)
             locators[name] = {"type": "point", "x": rel_x, "y": rel_y}
+
+            eh_ancora = input("Também salvar como âncora de imagem? (s/N): ").strip().lower()
+            if eh_ancora == "s":
+                templates_dir = output_path.parent / "templates"
+                caminho = _capture_template(abs_point, name, templates_dir)
+                print(f"template salvo em {caminho}")
         else:
             print("Canto superior esquerdo:")
             top_left = _capture_point()

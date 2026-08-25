@@ -144,3 +144,56 @@ def test_transaction_raises_on_unexpected_final_state():
     with pytest.raises(UnexpectedStateError):
         with automator.transaction():
             pass
+
+
+class _FakePixelImage:
+    def __init__(self, rgb):
+        self._rgb = rgb
+
+    def getpixel(self, xy):
+        return self._rgb
+
+
+def test_color_at_reads_pixel_at_resolved_locator():
+    driver = MockDriver(screenshot_return=_FakePixelImage((10, 20, 30)))
+    automator = make_automator(driver=driver)
+
+    assert automator.color_at("enter_key") == (10, 20, 30)
+    action, region = driver.calls[-1]
+    assert action == "screenshot"
+    assert region == (500, 500, 1, 1)  # FakeWindow: left=100+0.5*800, top=200+0.5*600
+
+
+def test_color_matches_true_within_tolerance():
+    driver = MockDriver(screenshot_return=_FakePixelImage((250, 255, 252)))
+    automator = make_automator(driver=driver)
+
+    assert automator.color_matches("enter_key", (255, 255, 255), tolerance=10) is True
+
+
+def test_color_matches_false_outside_tolerance():
+    driver = MockDriver(screenshot_return=_FakePixelImage((0, 0, 0)))
+    automator = make_automator(driver=driver)
+
+    assert automator.color_matches("enter_key", (255, 255, 255), tolerance=10) is False
+
+
+def test_color_at_survives_subclass_overriding_resolve():
+    """Uma subclasse que resolve locators de outro jeito (ex.: AnchorZone
+    por âncora de imagem) não precisa reimplementar color_at/color_matches
+    — só sobrescrever resolve()."""
+
+    class ResolveDoubled(GUIAutomator):
+        def resolve(self, name):
+            x, y = super().resolve(name)
+            return x * 2, y * 2
+
+    driver = MockDriver(screenshot_return=_FakePixelImage((1, 2, 3)))
+    automator = ResolveDoubled(
+        window=FakeWindow(), driver=driver, locators=LOCATORS,
+        state_detector=lambda: GUIState.READY,
+    )
+
+    automator.color_at("enter_key")
+    _, region = driver.calls[-1]
+    assert region == (1000, 1000, 1, 1)  # resolve() dobrado -> 500*2, 500*2
