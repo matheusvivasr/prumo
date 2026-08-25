@@ -21,6 +21,10 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
+anchors = [
+    "opencv-python>=4.8.0",
+    "numpy>=1.24",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

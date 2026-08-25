@@ -75,11 +75,32 @@ class PyAutoGuiDriver(InputDriver):
     def locate_on_screen(
         self, template_path: str, *, confidence: float = 0.85
     ) -> Optional[Tuple[float, float]]:
+        """Casamento no tamanho exato primeiro (rápido, é o caso comum);
+        se falhar, tenta múltiplas escalas do template antes de desistir
+        — a mesma aplicação pode renderizar o mesmo botão em tamanhos
+        diferentes entre modos de layout (não é só reposicionamento; ver
+        `_template_match.py`)."""
         try:
             box = self._pyautogui.locateOnScreen(template_path, confidence=confidence)
         except self._pyautogui.ImageNotFoundException:
+            box = None
+        if box is not None:
+            x, y = self._pyautogui.center(box)
+            return float(x), float(y)
+
+        return self._locate_multi_scale(template_path, confidence=confidence)
+
+    def _locate_multi_scale(
+        self, template_path: str, *, confidence: float
+    ) -> Optional[Tuple[float, float]]:
+        import cv2
+        import numpy as np
+
+        from prumo.drivers._template_match import locate_multi_scale
+
+        template = cv2.imread(template_path)
+        if template is None:
             return None
-        if box is None:
-            return None
-        x, y = self._pyautogui.center(box)
-        return float(x), float(y)
+        screenshot = self._pyautogui.screenshot()
+        screen = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+        return locate_multi_scale(screen, template, confidence=confidence)

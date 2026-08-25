@@ -310,6 +310,14 @@ x, y = zone.resolve(algum_outro_locator)
 Âncora não encontrada levanta `LocatorError` — nunca clica às cegas quando o template
 para de bater (tema mudou, fonte mudou, layout mudou o suficiente).
 
+`PyAutoGuiDriver.locate_on_screen` tenta o tamanho exato primeiro (rápido) e, se
+falhar, cai pra busca **multi-escala** (`drivers/_template_match.py`, testa o
+template em ~10 escalas via OpenCV) antes de desistir. Achado real (25/08/2026, HP
+Prime): a mesma aplicação pode renderizar o mesmo botão em **tamanhos diferentes**
+entre modos de layout, não só posições diferentes — escala única derrubou a
+confiança de >0.85 pra 0.44 mesmo com o botão visível e correto na tela. Exige
+`opencv-python`+`numpy` (extra `prumo[anchors]`).
+
 ### 9.3. `GUIAutomator.color_at` / `color_matches`
 
 Leitura de pixel (decisão simples: indicador verde/vermelho, luz acesa/apagada) é

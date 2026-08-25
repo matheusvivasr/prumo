@@ -5,6 +5,16 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido
+
+- `PyAutoGuiDriver.locate_on_screen` só testava o tamanho exato do template —
+  a mesma aplicação pode renderizar o mesmo botão em tamanhos diferentes entre
+  modos de layout (achado real, HP Prime: confiança caiu de >0.85 pra 0.44 com
+  o botão visível e correto na tela). Agora cai pra busca multi-escala
+  (`drivers/_template_match.py`, ~10 escalas via OpenCV) antes de desistir.
+  Extra `prumo[anchors]` (`opencv-python`+`numpy`). 4 testes com arrays
+  sintéticos, sem precisar de tela real.
+
 ### Adicionado
 
 - `InputDriver.drag(start, end, duration=0.5)` e `InputDriver.screen_size()` —
