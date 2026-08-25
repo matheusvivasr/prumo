@@ -47,10 +47,18 @@ fácil de acabar com uma `HPPrimeAutomator` disfarçada de `GUIAutomator`.
   migrado" no `README.md` do `hp-prime-automation`.
 - [ ] **Etapa 10 — Transações.** `with calc.transaction(): ...` já existe em
   `GUIAutomator` (Etapa 1) e `HpPrimeCalculator` herda; nenhuma macro real usa ainda.
-- [ ] **Etapa 11 — End-to-end.** Cenários reais automatizados contra a HP Prime — a
-  extração da Etapa 8 nunca rodou contra a aplicação de verdade, só contra
-  `MockDriver`. Validação ao vivo (abrir a Virtual Calculator e confirmar que
-  `press_key` clica no lugar certo) continua pendente.
+- [~] **Etapa 11 — End-to-end.** Geometria validada em 25/08/2026 contra a HP Prime
+  real: um print da janela aberta + as 51 teclas resolvidas pelo `HpPrimeCalculator`
+  real (via `MockDriver`, sem clicar) desenhadas por cima — todas caíram centralizadas
+  no botão certo. Essa validação também **encontrou e corrigiu dois bugs reais** que só
+  apareceriam rodando contra a aplicação: o título configurado
+  (`"HP Prime Virtual Calculator"`) não batia com o título real da janela
+  (`"HP Prime"`) — `run_macro.py` nunca teria encontrado a janela; e os locators são
+  relativos ao **teclado**, não à janela inteira — usar `window.geometry()` direto
+  teria clicado dentro do display. Falta o último passo: um `press_key()` real,
+  clicando de verdade (ainda não tentado — a extração via `computer-use` não teve
+  acesso liberado, e clique sintético via Bash tem risco de errar se algo estiver
+  desalinhado; a validação visual foi o substituto seguro).
 
 ## Nota de migração — `hp-prime-automation`
 
