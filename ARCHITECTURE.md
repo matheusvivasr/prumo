@@ -260,6 +260,7 @@ class InputDriver:
     def screenshot(self, region=None): ...
     def screen_size(self): ...
     def move_to(self, x, y): ...
+    def locate_on_screen(self, template_path, *, confidence=0.85): ...
 ```
 
 Implementação inicial: PyAutoGUI. Futuras: `WindowsUIDriver`, `LinuxUIDriver`,
@@ -271,6 +272,43 @@ Sem um driver falso, os testes precisam abrir a aplicação real — ruim para C
 iteração rápida. `calc.press_enter()` deve rodar em ambiente sem GUI. O mock registra
 a sequência produzida (`[("click", "enter_key"), ("wait", 0.2)]`) para verificação sem
 clique físico.
+
+### 9.2. `locate_on_screen` e `AnchorZone` — resolução por âncora de imagem
+
+Coordenadas relativas à janela (§1.3, §21) pressupõem que a aplicação inteira escala e
+move como um retângulo rígido a partir de `window.geometry()`. Duas coisas quebram essa
+suposição na prática (achado em produção, ver `hp-prime-automation`):
+
+1. `window.geometry()` pode não bater com o conteúdo renderizado de verdade — retângulo
+   "lógico" divergindo dos pixels reais (observado com DPI: um teclado calibrado por
+   fração de `window.geometry()` precisava de uma largura ~4-9% maior que a janela
+   reportava pra fechar a conta).
+2. A aplicação pode ter mais de um **modo de layout** — uma janela redimensionada
+   reorganiza a interface (não só escala). Coordenadas calibradas num modo não
+   generalizam pro outro nem multiplicando por uma razão de escala.
+
+`InputDriver.locate_on_screen(template_path, confidence=)` acha um recorte de imagem
+direto na tela (via casamento de template) e devolve o pixel central, ou `None` se não
+achar. `core.anchors.AnchorZone` usa isso pra resolver qualquer `Locator`: dadas 2
+**âncoras** (`Anchor` = um `PointLocator` + o caminho do template que a representa) em
+cantos opostos, localiza as duas na tela e resolve exato o sistema escala+translação por
+eixo — o mínimo matemático quando só escala e posição podem variar (sem rotação nem
+cisalhamento). Nunca depende de `window.geometry()` pra calcular posição, só para saber
+quando o cache expirou (`geometry_key()` mudou — a janela pode ter mudado de lugar,
+tamanho ou *modo*; não dá pra saber qual sem medir de novo).
+
+```python
+zone = AnchorZone(
+    Anchor(locator=PointLocator(x=0.06, y=0.25), template_path="config/templates/A.png"),
+    Anchor(locator=PointLocator(x=0.89, y=0.90), template_path="config/templates/B.png"),
+    locate=driver.locate_on_screen,
+    geometry_key=window.geometry,
+)
+x, y = zone.resolve(algum_outro_locator)
+```
+
+Âncora não encontrada levanta `LocatorError` — nunca clica às cegas quando o template
+para de bater (tema mudou, fonte mudou, layout mudou o suficiente).
 
 ---
 

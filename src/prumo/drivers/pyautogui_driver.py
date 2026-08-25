@@ -5,6 +5,10 @@ teclado (lida melhor com Unicode/acentos do que pyautogui.typewrite). Ativa
 DPI awareness no Windows antes do primeiro uso — sem isso, telas com escala
 != 100% fazem clique e coordenada não baterem (mesmo problema resolvido em
 hp-prime-automation/core/dpi_awareness.py).
+
+`locate_on_screen` usa `confidence=`, que exige `opencv-python` instalado
+(dependência opcional do pyautogui — não é hard dependency do prumo, quem
+usa âncoras por imagem instala por conta).
 """
 
 from __future__ import annotations
@@ -67,3 +71,15 @@ class PyAutoGuiDriver(InputDriver):
 
     def screen_size(self) -> Tuple[int, int]:
         return tuple(self._pyautogui.size())
+
+    def locate_on_screen(
+        self, template_path: str, *, confidence: float = 0.85
+    ) -> Optional[Tuple[float, float]]:
+        try:
+            box = self._pyautogui.locateOnScreen(template_path, confidence=confidence)
+        except self._pyautogui.ImageNotFoundException:
+            return None
+        if box is None:
+            return None
+        x, y = self._pyautogui.center(box)
+        return float(x), float(y)

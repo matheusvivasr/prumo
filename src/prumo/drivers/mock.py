@@ -8,7 +8,7 @@ ROADMAP.md exige isso antes de crescer a API de qualquer aplicação.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from prumo.drivers.base import InputDriver
 
@@ -18,6 +18,7 @@ class MockDriver(InputDriver):
     calls: List[Tuple[str, Any]] = field(default_factory=list)
     screenshot_return: Any = None
     screen_size_return: Tuple[int, int] = (1920, 1080)
+    locate_on_screen_return: Dict[str, Optional[Tuple[float, float]]] = field(default_factory=dict)
 
     def click(self, x: int, y: int, *, button: str = "left", clicks: int = 1) -> None:
         self.calls.append(("click", (x, y, button, clicks)))
@@ -44,6 +45,12 @@ class MockDriver(InputDriver):
     def screen_size(self) -> Tuple[int, int]:
         self.calls.append(("screen_size", None))
         return self.screen_size_return
+
+    def locate_on_screen(
+        self, template_path: str, *, confidence: float = 0.85
+    ) -> Optional[Tuple[float, float]]:
+        self.calls.append(("locate_on_screen", (template_path, confidence)))
+        return self.locate_on_screen_return.get(template_path)
 
     def actions(self) -> List[str]:
         """Nomes das ações registradas, na ordem — útil em asserts de teste."""

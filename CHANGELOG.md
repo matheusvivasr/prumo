@@ -11,6 +11,12 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
   faltavam no contrato original (§9); apareceram ao construir uma macro real no
   `hp-prime-automation` que precisa arrastar uma seleção de tela inteira. Implementados
   em `PyAutoGuiDriver` e `MockDriver`, com testes (`tests/unit/test_mock_driver.py`).
+- `InputDriver.locate_on_screen(template_path, confidence=)` e `core.anchors.AnchorZone`
+  (§9.2) — resolvem locator por 2 âncoras de imagem em vez de fração fixa de
+  `window.geometry()`. Promovido do `hp-prime-automation`, onde nasceu resolvendo um
+  problema real: a HP Prime tem mais de um modo de layout (não é o mesmo arranjo
+  escalado), e toda calibração por fração fixa quebrava ao trocar de modo. Testado
+  (`tests/unit/test_anchors.py`, `test_mock_driver.py`) sem precisar de tela real.
 
 ### Pendente
 

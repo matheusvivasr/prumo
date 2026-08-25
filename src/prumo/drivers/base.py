@@ -35,3 +35,8 @@ class InputDriver(ABC):
 
     @abstractmethod
     def screen_size(self) -> Tuple[int, int]: ...
+
+    @abstractmethod
+    def locate_on_screen(
+        self, template_path: str, *, confidence: float = 0.85
+    ) -> Optional[Tuple[float, float]]: ...
