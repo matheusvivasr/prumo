@@ -48,32 +48,45 @@ fácil de acabar com uma `HPPrimeAutomator` disfarçada de `GUIAutomator`.
 - [ ] **Etapa 10 — Transações.** `with calc.transaction(): ...` já existe em
   `GUIAutomator` (Etapa 1) e `HpPrimeCalculator` herda; nenhuma macro real usa ainda.
 - [~] **Etapa 11 — End-to-end.** Geometria validada em 25/08/2026 contra a HP Prime
-  real. No caminho, encontrou e corrigiu dois bugs reais que só apareceriam
-  rodando contra a aplicação: título configurado
-  (`"HP Prime Virtual Calculator"`) não batia com o real (`"HP Prime"`); e os
-  locators são relativos ao **teclado**, não à janela inteira (`window.geometry()`
-  direto teria clicado no display). A calibração do teclado em si passou por
-  três tentativas até ficar confiável — registrado porque é uma lição genérica de
-  metodologia, não só deste app: **overlay visual + offset fixo mascara erro de
-  escala** (um offset acerta uma tecla e erra outra, e "parece certo" olhando só
-  uma); **2 pontos resolvem exato mas não expõem ruído** (uma leitura de mouse
-  fora do centro em 1 dos 2 pontos define a reta inteira sem contradição
-  aparente); a solução foi **4 pontos nos cantos opostos + mínimos quadrados**
-  — qualquer leitura ruim de 1 ponto aparece como resíduo alto contra os
-  outros 3. Ainda faltava uma peça: o teclado da HP Prime **não é uma grade
-  única** — o aglomerado de cima (Apps/Symb/Plot/Help/View/Menu/Home/Esc/CAS
-  + disco de navegação) é separado da grade principal por um espaço não-
-  proporcional, então uma calibração ajustada só pela grade principal
-  extrapolava pra cima com viés. Resolvido calibrando as **duas zonas
-  separadamente** (`MAIN_*`/`UPPER_*_FRACTION` em `HpPrimeCalculator`,
-  `_zone_bounds()` escolhe pela fração y do locator) — 4 pontos por zona,
-  mesmo método. Resíduo final: ≤0.5px na grade principal, ≤3px na zona de
-  cima (menor, mais sensível, ainda bem dentro do botão). Overlay das 51
-  teclas confirmado centralizado nas duas zonas. Ainda não houve um
-  `press_key()` clicando de verdade (só leitura de posição via
-  `GetCursorPos` e overlay visual) — próximo consumidor real que quiser
-  confiar cegamente deve confirmar isso antes de rodar macro sem
-  supervisão.
+  real, em vários capítulos — vale o histórico completo porque cada um corrigiu um
+  jeito diferente de "parecer certo" e estar errado:
+
+  1. **Dois bugs de config**, só visíveis rodando contra a aplicação: título
+     configurado (`"HP Prime Virtual Calculator"`) não batia com o real
+     (`"HP Prime"`); locators são relativos ao **teclado**, não à janela inteira.
+  2. **Calibração por offset fixo** — acertava uma tecla, errava outra (erro de
+     escala disfarçado de deslocamento).
+  3. **2 pontos** resolvem o sistema exato mas não expõem leitura ruim de mouse
+     fora do centro — a reta "fecha" mesmo com um dos dois pontos errado.
+  4. **4 pontos + mínimos quadrados**: qualquer leitura ruim vira resíduo alto
+     contra os outros 3. Resolveu bem — só que só pra grade principal.
+  5. O teclado **não é uma grade única**: o aglomerado de cima (Apps/Symb/Plot/
+     Help/View/Menu/Home/Esc/CAS + disco de navegação) é separado por um espaço
+     não-proporcional — precisou de calibração própria (4 pontos, mesma técnica).
+  6. **O chão em si mudou**: a HP Prime tem pelo menos dois MODOS DE LAYOUT
+     (retrato estreito vs. paisagem larga com teclado do lado do display) — não é
+     escala do mesmo arranjo, é outra estrutura. Toda calibração por fração fixa
+     relativa a `window.geometry()` (itens 2-5) morreu no mesmo dia em que a
+     janela mudou de modo no meio da sessão.
+  7. **Solução definitiva**: parar de calibrar frações fixas e **localizar 2
+     âncoras por zona direto na tela**, a cada execução, por template matching
+     (`pyautogui.locateOnScreen` + opencv, recortes em `config/templates/*.png`).
+     Não depende de `window.geometry()` nem de nenhuma constante calibrada à mão
+     — funciona em qualquer modo de layout porque acha os botões onde eles
+     realmente estão, não onde uma fórmula prevê que deveriam estar. Cache por
+     geometria de janela evita refazer a busca a cada tecla.
+  8. De quebra, o processo de comparar âncoras vizinhas achou um **erro real na
+     calibração original** (anterior a todo esse capítulo): SYMB/HELP/ARUP
+     compartilhavam a fração y de APPS/ESCC mas ficam ~14px mais acima na tela de
+     verdade — corrigido no JSON via a mesma técnica (`GetCursorPos`).
+
+  Overlay das 51 teclas confirmado centralizado nos dois modos de layout
+  testados. Ainda não houve um `press_key()` clicando de verdade contra a
+  aplicação — só leitura de posição e overlay visual — próximo consumidor real
+  que quiser confiar cegamente deve confirmar isso antes de rodar macro sem
+  supervisão. O esquema de âncora-por-imagem é genérico o bastante pra virar
+  capacidade do próprio `prumo` (hoje vive só em `hp-prime-automation`) — ver
+  nota de migração acima.
 
 ## Nota de migração — `hp-prime-automation`
 
