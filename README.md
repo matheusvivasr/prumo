@@ -34,11 +34,20 @@ que o projeto entrega — detalhes em [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Estado do projeto
 
-Fase de especificação — ver [ROADMAP.md](ROADMAP.md) para as etapas de implementação
-e o critério de conclusão da v0.1. A HP Prime (via
+Core funcional (v0.1.0): locators, janela, driver, máquina de estados,
+interrupções, recuperação, logging estruturado e `MockDriver` — testados sem
+nenhuma GUI real (39 testes, `pytest`). Ver [ROADMAP.md](ROADMAP.md) para o detalhe
+de cada etapa e o que falta.
+
+A HP Prime (via
 [`hp-prime-automation`](https://github.com/matheusvivasr/hp-prime-automation)) é a
 primeira aplicação-alvo e, mais adiante, o primeiro consumidor externo real do
 framework — não faz parte deste repositório.
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
 
 ## Documentação
 

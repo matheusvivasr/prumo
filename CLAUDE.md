@@ -37,10 +37,13 @@ biblioteca, não manter uma segunda cópia da lógica.
 
 ## Convenções específicas
 
-- **Versionamento:** segue o esquema do `pyproject.toml` (`version = "0.0.1"` hoje).
-  As versões `v0.1`–`v1.0` do [ROADMAP.md](ROADMAP.md) marcam etapas de
-  desenvolvimento, não são releases automáticas — só bump quando o critério de
-  conclusão da etapa (ARCHITECTURE.md §21) estiver satisfeito.
+- **Versionamento:** segue o esquema do `pyproject.toml` (`version = "0.1.0"` hoje —
+  Core, Config, Estado, Interrupções, Recuperação, Logging e MockDriver prontos e
+  testados; falta a extração do `hp-prime-automation`, Etapas 8-11 do
+  [ROADMAP.md](ROADMAP.md), e testes de integração contra GUI real). As versões
+  `v0.1`–`v1.0` do roadmap marcam etapas de desenvolvimento, não são releases
+  automáticas — só bump quando o critério de conclusão da etapa (ARCHITECTURE.md §21)
+  estiver satisfeito.
 - **Testes:** todo o `core/` e `drivers/` (exceto o driver real de PyAutoGUI) deve
   ser testável via `MockDriver`, sem abrir nenhuma aplicação. Um PR que só passa com
   GUI real aberta está testando a camada errada.

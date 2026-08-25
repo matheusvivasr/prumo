@@ -1,0 +1,24 @@
+{
+    "schema_version": 1,
+    "application": "Fake Calculator",
+
+    "window": {
+        "title": "Fake Calculator"
+    },
+
+    "locators": {
+        "enter_key": {
+            "type": "point",
+            "x": 0.50,
+            "y": 0.82
+        },
+
+        "display": {
+            "type": "region",
+            "x": 0.10,
+            "y": 0.05,
+            "width": 0.80,
+            "height": 0.30
+        }
+    }
+}

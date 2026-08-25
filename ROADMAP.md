@@ -10,30 +10,38 @@ fácil de acabar com uma `HPPrimeAutomator` disfarçada de `GUIAutomator`.
 - [x] **Etapa 0 — Especificação.** Arquitetura, responsabilidades, nomenclatura,
   estados, exceptions, formato JSON, contrato das interfaces. **Sem código de HP
   Prime.** → [ARCHITECTURE.md](ARCHITECTURE.md)
-- [ ] **Etapa 1 — Core.** `Locator`, `WindowManager`, `InputDriver`, `GUIAutomator`,
-  `Exceptions`. Critério: `automator.click("button")` funciona.
-- [ ] **Etapa 2 — Configuração.** JSON loader, schema, validator, mapper. Critério:
-  `GUI → mapper → config.json → GUIAutomator`.
-- [ ] **Etapa 3 — Estado.** `GUIState`, `StateManager`, `wait_until`, timeouts.
-  Critério: `automator.wait_ready()`.
-- [ ] **Etapa 4 — Interrupções.** `Interruption`, `InterruptionManager`, popup
-  handling, error handling.
-- [ ] **Etapa 5 — Recuperação.** `RecoveryManager`, reset, retry, abort.
-- [ ] **Etapa 6 — Logging.** operation ID, transições de estado, ações, erros,
-  recuperação.
-- [ ] **Etapa 7 — Mock Driver.** Testes completos sem GUI. **Obrigatória antes de
-  crescer a API da HP Prime.**
+- [x] **Etapa 1 — Core.** `Locator`, `WindowManager`, `InputDriver`, `GUIAutomator`,
+  `Exceptions`. Critério: `automator.click("button")` funciona (`src/prumo/core/`,
+  `src/prumo/drivers/`).
+- [x] **Etapa 2 — Configuração.** JSON loader, schema, validator, mapper.
+  `config/loader.py` rejeita chave duplicada; `config/schema.py` valida schema
+  version, campos obrigatórios e cada locator; `tools/validate_config.py` e
+  `tools/mapper.py` prontos como scripts de linha de comando.
+- [x] **Etapa 3 — Estado.** `GUIState`, `StateManager`, `wait_until`, timeouts
+  (`core/state.py`, `AutomationTimeoutError`).
+- [x] **Etapa 4 — Interrupções.** `Interruption`, `InterruptionManager` (`core/events.py`),
+  verificadas em `GUIAutomator.precheck()` antes de toda ação.
+- [x] **Etapa 5 — Recuperação.** `RecoveryManager` (`core/recovery.py`) — `ensure_ready`
+  só aciona recuperação se houver passos registrados; sem eles, propaga o timeout.
+- [x] **Etapa 6 — Logging.** Cada ação loga com um `op=<id>` sequencial via
+  `logging.getLogger("prumo")` (`core/automator.py`) — sem módulo de logging dedicado,
+  como o próprio §18 descreve (é convenção de mensagem, não infraestrutura nova).
+- [x] **Etapa 7 — Mock Driver.** `drivers/mock.py` + suíte em `tests/unit/` (39 testes,
+  zero dependência de GUI real). **Cumprida antes de qualquer código de HP Prime.**
+- [x] **Segunda aplicação.** `tests/unit/test_second_application.py` — uma
+  `LegacyApplication(GUIAutomator)` fictícia, sem tocar em `core/`, `drivers/` ou
+  `config/`. Prova mínima do critério — ver
+  [ARCHITECTURE.md §22](ARCHITECTURE.md#22-critério-de-reutilização). Vale reforçar
+  com um segundo consumidor real quando a extração da Etapa 8 acontecer.
 - [ ] **Etapa 8 — HP Prime.** `HpPrimeCalculator`, `HpPrimeKeyboard`,
-  `ExpressionParser`, `Result` em `applications/hp_prime/`. Primeiro consumidor real
-  do framework — ver nota de migração abaixo.
+  `ExpressionParser`, `Result`. **Não entra neste repositório** — é a extração para
+  `hp-prime-automation` descrita na nota abaixo; falta fazer.
 - [ ] **Etapa 9 — API semântica.** `calc.type_expression()`, `calc.press_enter()`,
-  `calc.get_result()`, `calc.reset()`.
-- [ ] **Etapa 10 — Transações.** `with calc.transaction(): ...`.
-- [ ] **Etapa 11 — End-to-end.** Cenários reais automatizados.
-- [ ] **Segunda aplicação.** `FakeCalculator`/`LegacyApplication` fictícia
-  implementada sem tocar em `core/`, `drivers/`, `state/`, `locator/` ou
-  `transaction/`. Este é o teste arquitetural que decide se o framework é reutilizável
-  de fato — ver [ARCHITECTURE.md §22](ARCHITECTURE.md#22-critério-de-reutilização).
+  `calc.get_result()`, `calc.reset()` — em `hp-prime-automation`, sobre o `prumo`.
+- [ ] **Etapa 10 — Transações.** `with calc.transaction(): ...` já existe em
+  `GUIAutomator` (Etapa 1); falta o consumidor real usá-la.
+- [ ] **Etapa 11 — End-to-end.** Cenários reais automatizados contra a HP Prime —
+  depende das Etapas 8-10 em `hp-prime-automation`.
 
 ## Nota de migração — `hp-prime-automation`
 
