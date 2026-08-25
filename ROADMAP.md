@@ -47,9 +47,10 @@ fácil de acabar com uma `HPPrimeAutomator` disfarçada de `GUIAutomator`.
   migrado" no `README.md` do `hp-prime-automation`.
 - [ ] **Etapa 10 — Transações.** `with calc.transaction(): ...` já existe em
   `GUIAutomator` (Etapa 1) e `HpPrimeCalculator` herda; nenhuma macro real usa ainda.
-- [~] **Etapa 11 — End-to-end.** Geometria validada em 25/08/2026 contra a HP Prime
-  real, em vários capítulos — vale o histórico completo porque cada um corrigiu um
-  jeito diferente de "parecer certo" e estar errado:
+- [x] **Etapa 11 — End-to-end.** Geometria validada e **clique real confirmado**
+  (25/08/2026) contra a HP Prime real, em vários capítulos — vale o histórico
+  completo porque cada um corrigiu um jeito diferente de "parecer certo" e estar
+  errado:
 
   1. **Dois bugs de config**, só visíveis rodando contra a aplicação: título
      configurado (`"HP Prime Virtual Calculator"`) não batia com o real
@@ -79,14 +80,20 @@ fácil de acabar com uma `HPPrimeAutomator` disfarçada de `GUIAutomator`.
      calibração original** (anterior a todo esse capítulo): SYMB/HELP/ARUP
      compartilhavam a fração y de APPS/ESCC mas ficam ~14px mais acima na tela de
      verdade — corrigido no JSON via a mesma técnica (`GetCursorPos`).
+  9. **Escala única não bastava**: mesmo com âncoras corretas, a janela voltou pro
+     modo retrato num tamanho ligeiramente diferente do calibrado e a confiança do
+     template caiu de >0.85 pra 0.44 — o botão renderiza em tamanho diferente
+     entre estados, não só posição diferente. Resolvido com busca **multi-escala**
+     no `locate_on_screen` (`drivers/_template_match.py`, ~10 escalas via OpenCV,
+     tenta o tamanho exato primeiro).
+  10. **`press_key()` de verdade, clicando na aplicação real**: `NUM7` → "7" na
+      linha de entrada; `PLUS`, `NUM8`, `ENTR` → `7+8` calculado, resultado `15`
+      correto. Primeira validação de ponta a ponta sem rede de segurança nenhuma
+      (nem overlay, nem `MockDriver`) — só a calculadora respondendo certo.
 
-  Overlay das 51 teclas confirmado centralizado nos dois modos de layout
-  testados. Ainda não houve um `press_key()` clicando de verdade contra a
-  aplicação — só leitura de posição e overlay visual — próximo consumidor real
-  que quiser confiar cegamente deve confirmar isso antes de rodar macro sem
-  supervisão. O esquema de âncora-por-imagem é genérico o bastante pra virar
-  capacidade do próprio `prumo` (hoje vive só em `hp-prime-automation`) — ver
-  nota de migração acima.
+  O esquema de âncora-por-imagem (com busca multi-escala) é genérico o bastante
+  pra virar capacidade do próprio `prumo` — já foi promovido (ver nota de
+  migração acima e `ARCHITECTURE.md §9.2`).
 
 ## Nota de migração — `hp-prime-automation`
 
