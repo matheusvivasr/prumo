@@ -31,17 +31,26 @@ fácil de acabar com uma `HPPrimeAutomator` disfarçada de `GUIAutomator`.
 - [x] **Segunda aplicação.** `tests/unit/test_second_application.py` — uma
   `LegacyApplication(GUIAutomator)` fictícia, sem tocar em `core/`, `drivers/` ou
   `config/`. Prova mínima do critério — ver
-  [ARCHITECTURE.md §22](ARCHITECTURE.md#22-critério-de-reutilização). Vale reforçar
-  com um segundo consumidor real quando a extração da Etapa 8 acontecer.
-- [ ] **Etapa 8 — HP Prime.** `HpPrimeCalculator`, `HpPrimeKeyboard`,
-  `ExpressionParser`, `Result`. **Não entra neste repositório** — é a extração para
-  `hp-prime-automation` descrita na nota abaixo; falta fazer.
-- [ ] **Etapa 9 — API semântica.** `calc.type_expression()`, `calc.press_enter()`,
-  `calc.get_result()`, `calc.reset()` — em `hp-prime-automation`, sobre o `prumo`.
+  [ARCHITECTURE.md §22](ARCHITECTURE.md#22-critério-de-reutilização). Reforçada por um
+  segundo consumidor real: a extração da Etapa 8 abaixo.
+- [x] **Etapa 8 — HP Prime.** **Não entra neste repositório** — é
+  [`HpPrimeCalculator`](https://github.com/matheusvivasr/hp-prime-automation/blob/main/core/calculadora.py)
+  em `hp-prime-automation`, consumindo `prumo` como dependência editável. Os 51
+  locators calibrados foram convertidos do formato antigo (`dx,dy` absoluto) para o
+  schema relativo `[0,1]` do `prumo`; 6 testes offline com `MockDriver` provam a
+  resolução de pixel sem abrir a HP Prime. `HpPrimeKeyboard`/`Result` como classes
+  dedicadas não existiram — a legenda de tecla foi pra `core/keymap.py` (só
+  metadado normal/shift/alpha, sem geometria).
+- [ ] **Etapa 9 — API semântica.** `press_key(codigo)` e `color_matches()` existem;
+  `ExpressionParser`/`type_expression()`/`get_result()`/`reset()` — que exigiriam ler o
+  display da calculadora, não só clicar teclas — ainda não. Ver "O que ainda não foi
+  migrado" no `README.md` do `hp-prime-automation`.
 - [ ] **Etapa 10 — Transações.** `with calc.transaction(): ...` já existe em
-  `GUIAutomator` (Etapa 1); falta o consumidor real usá-la.
-- [ ] **Etapa 11 — End-to-end.** Cenários reais automatizados contra a HP Prime —
-  depende das Etapas 8-10 em `hp-prime-automation`.
+  `GUIAutomator` (Etapa 1) e `HpPrimeCalculator` herda; nenhuma macro real usa ainda.
+- [ ] **Etapa 11 — End-to-end.** Cenários reais automatizados contra a HP Prime — a
+  extração da Etapa 8 nunca rodou contra a aplicação de verdade, só contra
+  `MockDriver`. Validação ao vivo (abrir a Virtual Calculator e confirmar que
+  `press_key` clica no lugar certo) continua pendente.
 
 ## Nota de migração — `hp-prime-automation`
 
