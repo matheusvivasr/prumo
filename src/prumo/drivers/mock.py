@@ -17,6 +17,7 @@ from prumo.drivers.base import InputDriver
 class MockDriver(InputDriver):
     calls: List[Tuple[str, Any]] = field(default_factory=list)
     screenshot_return: Any = None
+    screen_size_return: Tuple[int, int] = (1920, 1080)
 
     def click(self, x: int, y: int, *, button: str = "left", clicks: int = 1) -> None:
         self.calls.append(("click", (x, y, button, clicks)))
@@ -33,9 +34,16 @@ class MockDriver(InputDriver):
     def write(self, text: str) -> None:
         self.calls.append(("write", text))
 
+    def drag(self, start: Tuple[int, int], end: Tuple[int, int], *, duration: float = 0.5) -> None:
+        self.calls.append(("drag", (start, end, duration)))
+
     def screenshot(self, region: Optional[Tuple[int, int, int, int]] = None):
         self.calls.append(("screenshot", region))
         return self.screenshot_return
+
+    def screen_size(self) -> Tuple[int, int]:
+        self.calls.append(("screen_size", None))
+        return self.screen_size_return
 
     def actions(self) -> List[str]:
         """Nomes das ações registradas, na ordem — útil em asserts de teste."""

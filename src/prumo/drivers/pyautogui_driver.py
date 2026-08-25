@@ -58,5 +58,12 @@ class PyAutoGuiDriver(InputDriver):
     def write(self, text: str) -> None:
         self._keyboard.write(text)
 
+    def drag(self, start: Tuple[int, int], end: Tuple[int, int], *, duration: float = 0.5) -> None:
+        self._pyautogui.moveTo(*start)
+        self._pyautogui.dragTo(*end, duration=duration, button="left")
+
     def screenshot(self, region: Optional[Tuple[int, int, int, int]] = None):
         return self._pyautogui.screenshot(region=region)
+
+    def screen_size(self) -> Tuple[int, int]:
+        return tuple(self._pyautogui.size())

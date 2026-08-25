@@ -5,6 +5,13 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Adicionado
+
+- `InputDriver.drag(start, end, duration=0.5)` e `InputDriver.screen_size()` —
+  faltavam no contrato original (§9); apareceram ao construir uma macro real no
+  `hp-prime-automation` que precisa arrastar uma seleção de tela inteira. Implementados
+  em `PyAutoGuiDriver` e `MockDriver`, com testes (`tests/unit/test_mock_driver.py`).
+
 ### Pendente
 
 - Extração do `hp-prime-automation` (Etapas 8-11 do `ROADMAP.md`) — a HP Prime
