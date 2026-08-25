@@ -109,6 +109,16 @@ Fica no `hp-prime-automation`, sem migrar: `config/coordenadas_*.json` (mapa é 
 aplicação, não do framework), `macros/`, `run_macro.py`. Ele passa a depender de
 `prumo` como biblioteca em vez de reimplementar a camada de automação.
 
+**Lição de processo (25/08/2026)**: `locate_on_screen`/`AnchorZone` (§9.2) nasceram
+resolvendo um problema real no `hp-prime-automation` e ficaram lá, implementados
+localmente, por um ciclo inteiro antes de serem promovidos pra cá — mesmo sendo
+capacidade genérica desde o primeiro commit, sem nada de HP Prime. O critério certo
+não é "isso é específico da aplicação?" no momento em que se escreve o código sob
+pressão de resolver algo agora — é perguntar de novo *depois*, com a pressão
+resolvida: "agora que existe, alguma outra aplicação usaria isso do jeito que
+está?". Se sim, promove antes de acumular mais um consumidor em cima do lugar
+errado.
+
 ## Versões (evolução futura)
 
 ```text
