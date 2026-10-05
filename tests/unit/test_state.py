@@ -83,3 +83,11 @@ def test_color_based_detector_plugs_into_state_manager():
     sm = StateManager(detector, poll_interval=0.01)
 
     assert sm.wait_for(GUIState.READY, timeout=1) == GUIState.READY
+
+
+def test_color_based_detector_rejects_a_malformed_expected_color():
+    # (0, 255) por erro de digitação: o zip truncaria e compararia só 2 canais,
+    # aceitando qualquer azul — strict=True faz o erro aparecer na hora
+    detector = color_based_detector(color_at=lambda: (0, 255, 77), color_states={(0, 255): GUIState.READY})
+    with pytest.raises(ValueError):
+        detector()

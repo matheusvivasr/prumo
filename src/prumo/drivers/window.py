@@ -12,9 +12,15 @@ import logging
 import sys
 import time
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
-from prumo.core.exceptions import WindowActivationError, WindowNotFoundError, WindowOccludedError
+from prumo.core.exceptions import (
+    AmbiguousWindowError,
+    WindowActivationError,
+    WindowNotFoundError,
+    WindowOccludedError,
+)
+from prumo.drivers._plataforma import avisar_uma_vez, sem_win32
 
 logger = logging.getLogger("prumo")
 
@@ -47,14 +53,24 @@ class WindowManager:
         exact: bool = False,
         attempts: int = 5,
         retry_interval: float = 0.5,
+        pid: Optional[int] = None,
     ):
+        """`pid` (opcional) aceita só janelas daquele processo — use quando
+        foi você quem o abriu e pode haver outra instância com o mesmo título."""
         self.title = title
         self.exact = exact
         self.attempts = attempts
         self.retry_interval = retry_interval
+        self.pid = pid
         self._window = None
 
     def find(self):
+        """Acha a janela-alvo. Com mais de uma candidata, NÃO escolhe pela
+        ordem que o Windows lista (achado real, 22/09/2026: `HP Prime_2`,
+        `HP Prime_3`... aparecem quando o mesmo executável é aberto de novo, e
+        a ordem decidia em qual instância a macro agia). Desempata pelo título
+        exatamente igual — a instância original; se nem isso desempata,
+        levanta `AmbiguousWindowError` listando as candidatas."""
         import pygetwindow as gw
 
         for _ in range(self.attempts):
@@ -64,14 +80,29 @@ class WindowManager:
                 if w.title.strip()
                 and (w.title == self.title if self.exact else self.title.lower() in w.title.lower())
             ]
+            if self.pid is not None:
+                candidates = [w for w in candidates if self._pid(getattr(w, "_hWnd", 0) or 0) == self.pid]
             if candidates:
-                self._window = candidates[0]
+                self._window = self._desempatar(candidates)
                 return self._window
             time.sleep(self.retry_interval)
 
+        filtro = f", pid={self.pid}" if self.pid is not None else ""
         raise WindowNotFoundError(
             f"nenhuma janela encontrada para título '{self.title}' "
-            f"(exact={self.exact}) após {self.attempts} tentativa(s)"
+            f"(exact={self.exact}{filtro}) após {self.attempts} tentativa(s)"
+        )
+
+    def _desempatar(self, candidates):
+        if len(candidates) == 1:
+            return candidates[0]
+        exatas = [w for w in candidates if w.title == self.title]
+        if len(exatas) == 1:
+            return exatas[0]
+        titulos = ", ".join(repr(w.title) for w in candidates)
+        raise AmbiguousWindowError(
+            f"{len(candidates)} janelas casam com '{self.title}' e nada desempata: {titulos}. "
+            f"Feche as instâncias extras ou passe pid= do processo certo."
         )
 
     def activate(self) -> None:
@@ -142,7 +173,7 @@ class WindowManager:
     def _tentar_ativar(window) -> None:
         try:
             window.activate()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - o veredito é o isActive, não a exceção
             # algumas versões do pygetwindow levantam aviso mesmo quando
             # funciona — por isso a confirmação real é `window.isActive`
             # logo depois, não a ausência de exceção aqui.
@@ -184,32 +215,25 @@ class WindowManager:
         caíram no Claude, e a cor "lida" do indicador de Shift era a da
         barra lateral dele (16,16,16). Foco não é visibilidade: é preciso
         perguntar ao SO de quem é o pixel (`WindowFromPoint`). Fora do
-        Windows devolve `True` (sem como checar)."""
-        if sys.platform != "win32":
+        Windows devolve `True` (sem como checar) — e avisa no log uma vez."""
+        if sem_win32("gate de oclusão (WindowManager.owns_point)"):
             return True
-        import ctypes
-        from ctypes import wintypes
-
-        window = self._window or self.find()
-        alvo = getattr(window, "_hWnd", None)
+        alvo = self._handle_alvo()
         if alvo is None:
             return True
-        user32 = ctypes.windll.user32
-        user32.WindowFromPoint.restype = wintypes.HWND
-        user32.WindowFromPoint.argtypes = [wintypes.POINT]
-        user32.GetAncestor.restype = wintypes.HWND
-        user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
-        hwnd = user32.WindowFromPoint(wintypes.POINT(int(x), int(y)))
+        hwnd = self._window_from_point(x, y)
         if not hwnd:
             return False
-        raiz = user32.GetAncestor(hwnd, 2)  # GA_ROOT
+        raiz = self._root_ancestor(hwnd)
         if int(raiz or 0) == int(alvo):
             return True
         # Menu suspenso/popup do PRÓPRIO app é outra janela top-level, mas do
         # mesmo processo — conta como da janela-alvo (achado real: o menu
         # "Editar" da HP Prime foi barrado como "oclusão" na 1ª versão desta
         # checagem). Janela de OUTRO processo por cima continua barrada.
-        return self._pid(raiz or hwnd) == self._pid(alvo)
+        # PID 0 (janela-alvo já destruída) nunca vira "mesmo processo".
+        pid_alvo = self._pid(alvo)
+        return pid_alvo != 0 and self._pid(raiz or hwnd) == pid_alvo
 
     def owns_foreground(self) -> bool:
         """`True` se a janela em primeiro plano é do MESMO PROCESSO da
@@ -225,11 +249,10 @@ class WindowManager:
 
         Falha fechado: sem janela em primeiro plano (transição, tela
         bloqueada) ou sem PID da janela-alvo, responde `False`. Fora do
-        Windows devolve `True` (sem como checar)."""
-        if sys.platform != "win32":
+        Windows devolve `True` (sem como checar) — e avisa no log uma vez."""
+        if sem_win32("checagem de primeiro plano (WindowManager.owns_foreground)"):
             return True
-        window = self._window or self.find()
-        alvo = getattr(window, "_hWnd", None)
+        alvo = self._handle_alvo()
         if alvo is None:
             return True
         frente = self._foreground_hwnd()
@@ -253,6 +276,43 @@ class WindowManager:
                 f"o primeiro plano não é do processo da janela '{self.title}' — "
                 f"as teclas não serão enviadas"
             )
+
+    def _handle_alvo(self) -> Optional[int]:
+        """O handle Win32 da janela-alvo, ou `None` se o objeto de janela não
+        expõe um (o `pygetwindow` real sempre expõe; dublês de teste e outros
+        backends podem não expor). Sem handle não há gate possível: quem chama
+        deixa passar, e isso é avisado no log uma vez — a mesma regra de
+        "fora do Windows" (`_plataforma`), nunca em silêncio."""
+        window = self._window or self.find()
+        alvo = getattr(window, "_hWnd", None)
+        if not alvo:
+            avisar_uma_vez(
+                f"sem-hwnd:{self.title}",
+                f"a janela '{self.title}' não expõe handle Win32 (_hWnd): gate de oclusão e "
+                f"de primeiro plano DESLIGADOS para ela",
+            )
+            return None
+        return int(alvo)
+
+    @staticmethod
+    def _window_from_point(x: int, y: int) -> int:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        user32.WindowFromPoint.restype = wintypes.HWND
+        user32.WindowFromPoint.argtypes = [wintypes.POINT]
+        return int(user32.WindowFromPoint(wintypes.POINT(int(x), int(y))) or 0)
+
+    @staticmethod
+    def _root_ancestor(hwnd: int) -> int:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        user32.GetAncestor.restype = wintypes.HWND
+        user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+        return int(user32.GetAncestor(wintypes.HWND(int(hwnd)), 2) or 0)  # GA_ROOT
 
     @staticmethod
     def _foreground_hwnd() -> int:
@@ -281,5 +341,6 @@ class WindowManager:
             return False
         try:
             return bool(self._window.title)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - janela destruída levanta tipos variados; a resposta é "não está viva"
+            logger.debug("is_alive: ler o título levantou (%s) — tratando como janela morta", exc)
             return False

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from prumo.core.exceptions import WindowActivationError
+from prumo.core.exceptions import AmbiguousWindowError, WindowActivationError, WindowNotFoundError
 from prumo.drivers.window import WindowManager
 
 
@@ -144,12 +144,11 @@ def test_find_with_multiple_matching_candidates_picks_by_list_order_not_by_corre
     extras (`HP Prime_1/_2/_3`), e `find()` não tem como saber que só a
     original importa.
 
-    Não é bug em `find()` pra corrigir aqui — a causa raiz é deixar mais de
-    uma instância aberta, não a busca em si (que faz o razoável dado o que
-    o Windows expõe). Este teste só documenta e trava o comportamento atual,
-    pra não ser redescoberto do zero na próxima vez que confundir: antes de
-    rodar qualquer macro, confira `listar_janelas.py` e feche instâncias
-    extras — nunca confie que `find()` vai achar "a certa" sozinho."""
+    Até 05/10/2026 este teste TRAVAVA esse comportamento ("pega a primeira
+    da lista"), com a leitura de que a causa raiz era deixar instâncias
+    abertas. No hardening (v0.9) virou o contrário: a ordem do SO não pode
+    decidir onde a automação age. O título exatamente igual desempata — é a
+    instância original, a que o achado dizia ser a única que importa."""
     janela_duplicada = FakeWin32Window(title="HP Prime_2")
     janela_original = FakeWin32Window(title="HP Prime")
     monkeypatch.setattr(
@@ -160,4 +159,45 @@ def test_find_with_multiple_matching_candidates_picks_by_list_order_not_by_corre
 
     achada = manager.find()
 
-    assert achada is janela_duplicada  # pega a PRIMEIRA da lista, não a "certa"
+    assert achada is janela_original  # a de título exato, não a primeira da lista
+
+
+def test_find_refuses_to_guess_when_nothing_breaks_the_tie(monkeypatch):
+    # duas instâncias com o MESMO título (ex.: o painel real aberto + o de teste)
+    a, b = FakeWin32Window(title="Tina — Supervisório"), FakeWin32Window(title="Tina — Supervisório")
+    monkeypatch.setattr("pygetwindow.getAllWindows", lambda: [a, b])
+
+    with pytest.raises(AmbiguousWindowError, match="2 janelas.*pid="):
+        WindowManager(title="Tina — Supervisório", exact=True).find()
+
+
+def test_find_refuses_substring_matches_without_an_exact_one(monkeypatch):
+    a, b = FakeWin32Window(title="HP Prime_2"), FakeWin32Window(title="HP Prime_3")
+    monkeypatch.setattr("pygetwindow.getAllWindows", lambda: [a, b])
+
+    with pytest.raises(AmbiguousWindowError, match="'HP Prime_2', 'HP Prime_3'"):
+        WindowManager(title="HP Prime").find()
+
+
+def test_ambiguity_is_not_a_not_found_error():
+    # quem trata "não achei" abrindo o app abriria MAIS uma instância
+    assert not issubclass(AmbiguousWindowError, WindowNotFoundError)
+
+
+def test_pid_picks_the_instance_you_opened(monkeypatch):
+    real, teste = FakeWin32Window(title="Painel"), FakeWin32Window(title="Painel")
+    real._hWnd, teste._hWnd = 1, 2
+    monkeypatch.setattr("pygetwindow.getAllWindows", lambda: [real, teste])
+    monkeypatch.setattr(WindowManager, "_pid", staticmethod(lambda hwnd: {1: 500, 2: 600}[int(hwnd)]))
+
+    assert WindowManager(title="Painel", exact=True, pid=600).find() is teste
+
+
+def test_pid_without_a_matching_window_is_not_found(monkeypatch):
+    real = FakeWin32Window(title="Painel")
+    real._hWnd = 1
+    monkeypatch.setattr("pygetwindow.getAllWindows", lambda: [real])
+    monkeypatch.setattr(WindowManager, "_pid", staticmethod(lambda hwnd: 500))
+
+    with pytest.raises(WindowNotFoundError, match="pid=600"):
+        WindowManager(title="Painel", exact=True, pid=600, attempts=1, retry_interval=0).find()

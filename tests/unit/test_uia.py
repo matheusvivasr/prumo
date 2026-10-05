@@ -127,7 +127,7 @@ def test_connect_raises_when_only_another_process_has_the_window():
 
 def test_root_before_connect_is_a_programming_error():
     with pytest.raises(UnexpectedStateError, match="connect"):
-        UiaWindow(name="Painel", backend=FakeAuto()).root
+        _ = UiaWindow(name="Painel", backend=FakeAuto()).root
 
 
 def test_root_does_not_silently_bind_to_a_new_instance_when_pid_is_fixed():
@@ -137,7 +137,7 @@ def test_root_does_not_silently_bind_to_a_new_instance_when_pid_is_fixed():
     minha.vivo = False                       # o app fechou...
     auto.tops.append(Ctrl(pid=9, Name="Painel"))  # ...e abriu de novo, noutro processo
     with pytest.raises(WindowNotFoundError):
-        w.root
+        _ = w.root
 
 
 # --- achar e ler ----------------------------------------------------------------

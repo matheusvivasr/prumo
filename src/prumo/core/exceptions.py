@@ -14,6 +14,13 @@ class WindowNotFoundError(AutomationError):
     """Janela-alvo não encontrada ou desapareceu."""
 
 
+class AmbiguousWindowError(AutomationError):
+    """Mais de uma janela casa com a busca e nada desempata (título exato,
+    PID). Agir em qualquer uma seria apostar qual é a certa. NÃO herda de
+    `WindowNotFoundError` de propósito: quem trata "não achei" abrindo o app
+    abriria mais uma instância e pioraria o problema."""
+
+
 class WindowActivationError(AutomationError):
     """Janela encontrada, mas não foi possível trazê-la pro primeiro plano
     (Windows recusou `SetForegroundWindow`, mesmo após o contorno de

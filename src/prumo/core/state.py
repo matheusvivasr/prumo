@@ -74,7 +74,7 @@ def color_based_detector(
     """
 
     def _matches(a: Tuple[int, int, int], b: Tuple[int, int, int]) -> bool:
-        return all(abs(x - y) <= tolerance for x, y in zip(a, b))
+        return all(abs(x - y) <= tolerance for x, y in zip(a, b, strict=True))
 
     def detector() -> GUIState:
         cor = color_at()

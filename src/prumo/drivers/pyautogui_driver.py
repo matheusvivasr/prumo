@@ -13,6 +13,7 @@ usa âncoras por imagem instala por conta).
 
 from __future__ import annotations
 
+import logging
 import sys
 import time
 from typing import Optional, Tuple
@@ -21,6 +22,8 @@ from prumo.core.exceptions import InputReleaseError
 from prumo.drivers.base import InputDriver
 from prumo.drivers.pacing import HumanPacing, distancia
 from prumo.drivers.release import confirm_released
+
+logger = logging.getLogger("prumo")
 
 
 # nome do botão no pyautogui -> nome em `release.VIRTUAL_KEYS`; o que não
@@ -35,7 +38,8 @@ class PyAutoGuiDriver(InputDriver):
     volta ao comportamento cru antigo (clique instantâneo), só pra quem
     sabe que o app aguenta."""
 
-    def __init__(self, *, pause: float = 0.1, failsafe: bool = True, pacing: Optional[HumanPacing] = HumanPacing()):
+    # HumanPacing é frozen: a instância padrão compartilhada é imutável, não vaza estado entre drivers
+    def __init__(self, *, pause: float = 0.1, failsafe: bool = True, pacing: Optional[HumanPacing] = HumanPacing()):  # noqa: B008
         self._ensure_dpi_awareness()
 
         import pyautogui
@@ -51,17 +55,32 @@ class PyAutoGuiDriver(InputDriver):
 
     @staticmethod
     def _ensure_dpi_awareness() -> None:
+        """Liga o DPI awareness do processo ANTES de qualquer leitura de
+        coordenada. Sem ele, em tela com escala ≠ 100%, o pixel que o mouse
+        recebe, o retângulo da UIA e o do `WindowManager` divergem — e o
+        clique cai fora do lugar sem erro nenhum (achado do e2e da Tina, §9.9).
+
+        As duas chamadas podem falhar por motivos inofensivos (Windows antigo
+        sem `shcore`; awareness já definido por outro caminho). Por isso o que
+        decide é a conferência no fim: se o processo NÃO ficou DPI-aware, isso
+        vai pro log como aviso, em vez de sumir."""
         if sys.platform != "win32":
             return
         import ctypes
 
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
-        except Exception:
+        except Exception:  # noqa: BLE001 - sem shcore (Windows antigo): tenta a API anterior
             try:
                 ctypes.windll.user32.SetProcessDPIAware()
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - quem decide é a conferência abaixo
+                logger.debug("SetProcessDPIAware levantou: %s", exc)
+        if not ctypes.windll.user32.IsProcessDPIAware():
+            logger.warning(
+                "o processo NÃO está DPI-aware: em tela com escala diferente de 100%%, "
+                "coordenadas do mouse, da UIA e da janela divergem e o clique pode cair "
+                "fora do lugar (ARCHITECTURE.md §9.9)"
+            )
 
     def click(self, x: int, y: int, *, button: str = "left", clicks: int = 1) -> None:
         p = self.pacing

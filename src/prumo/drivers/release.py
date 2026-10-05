@@ -10,11 +10,11 @@ importar.
 
 from __future__ import annotations
 
-import sys
 import time
 from typing import Callable, Iterable, List, Optional
 
 from prumo.core.exceptions import InputReleaseError
+from prumo.drivers._plataforma import sem_win32
 
 # códigos de tecla virtual do Windows (GetAsyncKeyState)
 VIRTUAL_KEYS = {
@@ -31,8 +31,8 @@ DEFAULT_INPUTS = ("mouse_left", "mouse_right", "shift", "ctrl", "alt")
 
 
 def _is_down_win32(name: str) -> bool:
-    if sys.platform != "win32":
-        return False  # sem como checar
+    if sem_win32("confirmação de soltura (drivers.release)"):
+        return False  # sem como checar — e o aviso já foi pro log
     import ctypes
 
     return bool(ctypes.windll.user32.GetAsyncKeyState(VIRTUAL_KEYS[name]) & 0x8000)

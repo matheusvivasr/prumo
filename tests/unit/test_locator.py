@@ -1,3 +1,5 @@
+import dataclasses
+
 import pytest
 
 from prumo.core.exceptions import LocatorError
@@ -17,7 +19,7 @@ def test_point_locator_rejects_out_of_unit_range(x, y):
 
 def test_point_locator_is_frozen():
     p = PointLocator(x=0.1, y=0.2)
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         p.x = 0.5  # type: ignore[misc]
 
 

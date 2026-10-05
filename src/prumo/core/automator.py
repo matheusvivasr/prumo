@@ -189,7 +189,7 @@ class GUIAutomator:
         vez de fechar o resultado."""
         deadline = time.monotonic() + timeout
         color = color_at()
-        while all(abs(a - b) <= tolerance for a, b in zip(color, from_color)):
+        while all(abs(a - b) <= tolerance for a, b in zip(color, from_color, strict=True)):
             if time.monotonic() > deadline:
                 raise AutomationTimeoutError(
                     f"timeout de {timeout}s esperando a cor mudar de {from_color}"
