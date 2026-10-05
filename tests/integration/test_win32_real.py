@@ -81,3 +81,23 @@ def test_release_query_reads_real_key_state():
     from prumo.drivers.release import held_inputs
 
     assert isinstance(held_inputs(), list)               # o conteúdo depende de quem está no teclado
+
+
+def test_real_windows_ocr_reads_accented_text_and_normalize_folds_it():
+    pytest.importorskip("winocr")
+    from PIL import Image, ImageDraw, ImageFont
+
+    from prumo.core.exceptions import UnexpectedStateError
+    from prumo.drivers.ocr import normalize, read_lines
+
+    img = Image.new("RGB", (360, 50), "white")
+    try:
+        fonte = ImageFont.truetype("arial.ttf", 22)
+    except OSError:
+        pytest.skip("sem a fonte Arial para desenhar o texto")
+    ImageDraw.Draw(img).text((10, 10), "Função Configurações", fill="black", font=fonte)
+    try:
+        linhas = read_lines(img)
+    except UnexpectedStateError as exc:     # Windows sem o pacote de OCR pt-BR (ex.: runner em inglês)
+        pytest.skip(str(exc))
+    assert [normalize(tl.text) for tl in linhas] == ["funcaoconfiguracoes"]

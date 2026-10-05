@@ -13,10 +13,14 @@ Custo: cada chamada é ~0,3 s. Use só onde a leitura é o próprio objetivo
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import difflib
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import List, Tuple
+
+from prumo.core.exceptions import UnexpectedStateError
 
 _SCALE = 3
 
@@ -45,9 +49,18 @@ def read_lines(img, *, offset: Tuple[int, int] = (0, 0), lang: str = "pt-BR") ->
     async def _run():
         # `winocr` devolve um objeto assíncrono do WinRT, não uma corrotina:
         # `asyncio.run(winocr.recognize_pil(...))` direto levanta ValueError.
-        return await winocr.recognize_pil(big, lang)
+        try:
+            return await winocr.recognize_pil(big, lang)
+        except AssertionError as exc:
+            # o winocr confere o idioma com `assert` — sem o pacote de idioma
+            # sai um AssertionError (e, com `python -O`, um AttributeError
+            # críptico, porque o assert some). Vira um erro que diz o que fazer.
+            raise UnexpectedStateError(
+                f"o OCR do Windows não tem o idioma '{lang}' instalado. Instale o pacote "
+                f"(Configurações > Hora e idioma) ou rode, como administrador: {exc}"
+            ) from exc
 
-    res = asyncio.run(_run())
+    res = _rodar_assincrono(_run)
     out: List[TextLine] = []
     for ln in res.lines:
         if not ln.words:
@@ -68,8 +81,25 @@ def read_lines(img, *, offset: Tuple[int, int] = (0, 0), lang: str = "pt-BR") ->
     return out
 
 
+def _rodar_assincrono(fabrica):
+    """`asyncio.run` da corrotina que `fabrica()` cria. Se esta thread já tem
+    um loop rodando (Jupyter, app assíncrono), `asyncio.run` levantaria
+    RuntimeError sem dizer nada de OCR — então roda numa thread própria."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(fabrica())
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(lambda: asyncio.run(fabrica())).result()
+
+
 def normalize(text: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", text.lower())
+    """Minúsculas, sem acento (á→a, ç→c) e só `[a-z0-9]`. Tirar o acento — em
+    vez de apagar a letra acentuada, como fazia até 05/10/2026 ("Função"
+    virava "funo") — é o que importa em pt-BR: o OCR lê "Funcao" onde a lista
+    diz "Função", e as duas têm de virar a mesma coisa."""
+    sem_acento = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", sem_acento.lower())
 
 
 def similarity(a: str, b: str) -> float:

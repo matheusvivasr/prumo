@@ -5,6 +5,18 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido (05/10/2026, OCR — §9.11, §9.14)
+
+- `ocr.normalize` APAGAVA a letra acentuada em vez de tirar o acento ("Função" virava `funo`): em
+  pt-BR, o idioma padrão, "Funcao" lido pelo OCR contra "Função" da lista dava 0,8. Agora dobra o
+  acento (NFKD): 1,0. Conferido com o OCR real do Windows.
+- `read_lines` dentro de um loop assíncrono já rodando (Jupyter, app assíncrono) levantava
+  `RuntimeError` do `asyncio.run`; agora roda numa thread própria.
+- Sem o pacote de OCR do idioma, o `winocr` falhava num `assert` (e, com `python -O`, num
+  `AttributeError` críptico); agora é `UnexpectedStateError` dizendo o que instalar.
+- `test_ocr` (dublê do `winocr`) e um `win32_real` com o OCR de verdade, pulado sem o idioma
+  (o runner do CI é em inglês). Cobertura do `ocr.py`: 55% → 100%; total 96,6%.
+
 ### Adicionado (05/10/2026, §9.12: todo gesto pelo automator)
 
 - `GUIAutomator.move_to()` (hover) e `GUIAutomator.drag()` (gate de oclusão nas duas pontas;
