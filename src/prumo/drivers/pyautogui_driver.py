@@ -16,9 +16,10 @@ from __future__ import annotations
 import logging
 import sys
 import time
+from pathlib import Path
 from typing import Optional, Tuple
 
-from prumo.core.exceptions import InputReleaseError
+from prumo.core.exceptions import InputReleaseError, LocatorError
 from prumo.drivers.base import InputDriver
 from prumo.drivers.pacing import HumanPacing, distancia
 from prumo.drivers.release import confirm_released
@@ -91,8 +92,14 @@ class PyAutoGuiDriver(InputDriver):
         time.sleep(p.varia(p.pre_click_s))
         for i in range(clicks):
             self._pyautogui.mouseDown(x=x, y=y, button=button)
-            time.sleep(p.varia(p.hold_s))
-            self._pyautogui.mouseUp(x=x, y=y, button=button)
+            try:
+                time.sleep(p.varia(p.hold_s))
+                self._pyautogui.mouseUp(x=x, y=y, button=button)
+            except BaseException:
+                # Ctrl+C ou FAILSAFE no instante segurado: o botão NÃO pode
+                # ficar preso no SO — solta e deixa a interrupção seguir
+                self._soltar_botao_sem_mover(button)
+                raise
             self._confirmar_soltura_mouse(button)
             if i < clicks - 1:
                 time.sleep(p.varia(p.hold_s))
@@ -105,6 +112,19 @@ class PyAutoGuiDriver(InputDriver):
             confirm_released((_BOTAO.get(button, "mouse_left"),), timeout=self.pacing.release_timeout_s)
         except InputReleaseError as exc:
             raise InputReleaseError(f"botão '{button}' do mouse continua pressionado após o clique") from exc
+
+    def _soltar_botao_sem_mover(self, button: str) -> None:
+        """Soltura de emergência, depois de uma interrupção com o botão
+        apertado. Duas regras: (1) solta ONDE o mouse estiver — não se move o
+        mouse de quem pode ter acabado de assumir; (2) o FAILSAFE fica
+        desligado só nesta chamada — com o mouse no canto ele levantaria
+        exceção antes de soltar, impedindo justamente a soltura."""
+        anterior = self._pyautogui.FAILSAFE
+        self._pyautogui.FAILSAFE = False
+        try:
+            self._pyautogui.mouseUp(button=button)
+        finally:
+            self._pyautogui.FAILSAFE = anterior
 
     def move_to(self, x: int, y: int, *, duration: float = 0.0) -> None:
         """`duration=0` pula direto (rápido, o caso comum). Alguns popups
@@ -133,12 +153,18 @@ class PyAutoGuiDriver(InputDriver):
         """Pressiona na ordem, segura um instante, solta na ordem inversa e
         CONFIRMA que cada uma foi solta antes de devolver."""
         p = self.pacing
-        for k in keys:
-            self._keyboard.press(k)
-            time.sleep(p.varia(p.hold_s) / 2)
-        time.sleep(p.varia(p.hold_s))
-        for k in reversed(keys):
-            self._keyboard.release(k)
+        apertadas = []
+        try:
+            for k in keys:
+                self._keyboard.press(k)
+                apertadas.append(k)
+                time.sleep(p.varia(p.hold_s) / 2)
+            time.sleep(p.varia(p.hold_s))
+        finally:
+            # solta o que foi apertado mesmo se algo interromper no meio
+            # (Ctrl+C): um Shift preso vale pra máquina inteira, não só pro app
+            for k in reversed(apertadas):
+                self._keyboard.release(k)
         prazo = time.monotonic() + p.release_timeout_s
         while any(self._keyboard.is_pressed(k) for k in keys):
             if time.monotonic() > prazo:
@@ -163,7 +189,13 @@ class PyAutoGuiDriver(InputDriver):
 
     def drag(self, start: Tuple[int, int], end: Tuple[int, int], *, duration: float = 0.5) -> None:
         self._pyautogui.moveTo(*start)
-        self._pyautogui.dragTo(*end, duration=duration, button="left")
+        try:
+            self._pyautogui.dragTo(*end, duration=duration, button="left")
+        except BaseException:
+            # o dragTo aperta, move e solta; interrompido no meio (FAILSAFE no
+            # trajeto, Ctrl+C), ele sai com o botão apertado
+            self._soltar_botao_sem_mover("left")
+            raise
         # Mesma regra do `click` (§9.9): nunca segue com o botão pressionado. O `drag` era o único gesto de mouse
         # sem a confirmação — achado ao usá-lo no e2e do painel-nativo (01/10/2026), onde soltar é o que dispara o comando.
         if self.pacing is not None:
@@ -184,27 +216,42 @@ class PyAutoGuiDriver(InputDriver):
         — a mesma aplicação pode renderizar o mesmo botão em tamanhos
         diferentes entre modos de layout (não é só reposicionamento; ver
         `_template_match.py`)."""
+        template = self._carregar_template(template_path)
         try:
-            box = self._pyautogui.locateOnScreen(template_path, confidence=confidence)
+            box = self._pyautogui.locateOnScreen(template, confidence=confidence)
         except self._pyautogui.ImageNotFoundException:
             box = None
         if box is not None:
             x, y = self._pyautogui.center(box)
             return float(x), float(y)
 
-        return self._locate_multi_scale(template_path, confidence=confidence)
+        return self._locate_multi_scale(template, confidence=confidence)
 
-    def _locate_multi_scale(
-        self, template_path: str, *, confidence: float
-    ) -> Optional[Tuple[float, float]]:
+    @staticmethod
+    def _carregar_template(template_path: str):
+        """Lê o recorte UMA vez, como matriz BGR do OpenCV (o que as duas
+        buscas aceitam). O `cv2.imread` devolve `None` em silêncio para
+        caminho com acento no Windows (`Conteúdo`, `matérias`...); lido por
+        bytes (`np.fromfile` + `cv2.imdecode`), o acento deixa de importar.
+        Arquivo ausente ou que não é imagem vira erro claro AQUI — e não
+        "não achei na tela" depois de esgotar o timeout inteiro."""
+        import cv2
+        import numpy as np
+
+        caminho = Path(template_path)
+        if not caminho.is_file():
+            raise FileNotFoundError(f"template não existe: {template_path}")
+        imagem = cv2.imdecode(np.fromfile(str(caminho), dtype=np.uint8), cv2.IMREAD_COLOR)
+        if imagem is None:
+            raise LocatorError(f"template ilegível (o OpenCV não decodifica como imagem): {template_path}")
+        return imagem
+
+    def _locate_multi_scale(self, template, *, confidence: float) -> Optional[Tuple[float, float]]:
         import cv2
         import numpy as np
 
         from prumo.drivers._template_match import locate_multi_scale
 
-        template = cv2.imread(template_path)
-        if template is None:
-            return None
         screenshot = self._pyautogui.screenshot()
         screen = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
         return locate_multi_scale(screen, template, confidence=confidence)
