@@ -30,6 +30,9 @@ anchors = [
     "opencv-python>=4.8.0",
     "numpy>=1.24",
 ]
+uia = [
+    "uiautomation>=2.0.18; sys_platform == 'win32'",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

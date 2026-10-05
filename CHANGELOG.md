@@ -5,6 +5,14 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Adicionado (05/10/2026, ARCHITECTURE.md §9.13: primeira fatia do driver de UIA, marco v0.6)
+
+- `drivers.uia.UiaWindow` (extra `[uia]`): janela de topo por título/classe, opcionalmente presa a um PID;
+  `find`, `is_visible` (existe **e** tem área), `center`, `value`, `owns_point` (`ControlFromPoint` por
+  processo, uma 2ª tentativa no `COMError`). Interseção do hp-prime-CK com o e2e da Tina; agir continua
+  com o `InputDriver`. Validado ao vivo só lendo (Explorador e painel-nativo); o gate acertou um Windows
+  Terminal por cima dos três pontos sondados.
+
 ### Adicionado (05/10/2026, ARCHITECTURE.md §9.12: o que os consumidores escreviam por fora)
 
 - `WindowManager.owns_foreground()` / `ensure_foreground()`: a próxima tecla vai pro **processo** certo

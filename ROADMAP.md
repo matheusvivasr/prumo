@@ -147,3 +147,16 @@ v0.8  API para agentes/LLMs
 v0.9  Hardening
 v1.0  Framework estável
 ```
+
+**A ordem acima é plano, não fila** — os marcos andam quando um consumidor real
+puxa. Estado em 05/10/2026 (a versão declarada segue `0.1.0`: nenhum marco
+fechou inteiro):
+
+- **v0.5 parcial** — OCR opcional (`drivers/ocr`, `core/listsel`, §9.11).
+- **v0.6 parcial** — `drivers/uia.UiaWindow` acha, lê e confere ponto (§9.13),
+  com dois consumidores (hp-prime-CK e o e2e da Tina). Falta o que só o Kit usa
+  hoje (padrões `Invoke`/`ExpandCollapse`, clique por UIA) — sobe quando um
+  segundo consumidor precisar.
+- **v0.7 em curso de fato** — já são três aplicações consumindo (emulador da HP
+  Prime, Connectivity Kit, painel-nativo da Tina), e foi delas que vieram as
+  peças do §9.12.

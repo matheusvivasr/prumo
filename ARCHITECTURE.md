@@ -632,6 +632,48 @@ driver de UIA (marco v0.6 do [ROADMAP.md](ROADMAP.md)) — sobe junto com ele,
 não sozinho. A migração dos consumidores para estas peças é trabalho de cada
 um deles, não deste repositório.
 
+### 9.13. `drivers/uia.UiaWindow` — achar, ler e conferir ponto por UI Automation
+
+Primeira fatia do driver de UIA (marco v0.6). O gatilho foi escrito pelo
+próprio hp-prime-CK: *o driver sobe quando a UIA tiver um segundo
+consumidor* — e o e2e do painel-nativo da Tina virou esse segundo em
+02/10/2026. Pelo §22, subiu só a interseção dos dois:
+
+| | hp-prime-CK | e2e da Tina | `UiaWindow` |
+|---|---|---|---|
+| janela de topo | por classe, PID descoberto | por título, PID fixo (foi ele quem abriu) | `name=` / `class_name=` / `pid=` |
+| achar controle com espera | classe/nome | `AutomationId` | `find(timeout=, **props)` |
+| "visível" | centro do retângulo | existe **e** tem área | `is_visible(**props)`, `center(control)` |
+| ler | `ValuePattern` | `ValuePattern` (+ `RangeValue`) | `value(control)` |
+| de quem é o pixel | `ControlFromPoint`, 2ª tentativa no `COMError` | idem | `owns_point(x, y)` |
+
+**Agir não é daqui.** O gesto continua saindo pelo `InputDriver` (ritmo humano,
+soltura confirmada, `TakeoverGuard`); a UIA acha o ponto e confere o resultado
+(§9.10). Ficaram com o consumidor: `RangeValue` (só a Tina usa) e `Invoke`,
+`ExpandCollapse`, `LegacyIAccessible` e os cliques por UIA (só o Kit).
+
+Regras que o desenho guarda:
+
+- **Com `pid` fixo, não há troca silenciosa de instância.** Se a janela some e
+  outra igual aparece noutro processo, `root` levanta `WindowNotFoundError` em
+  vez de seguir na janela nova.
+- **"Existe" não é "visível".** Um elemento `Collapsed` do WPF continua na
+  árvore com área zero; `is_visible` e `center` exigem área.
+- **`owns_point` é por processo** e só tenta de novo uma vez: um `COMError`
+  persistente sobe.
+
+Validado ao vivo em 05/10/2026, só leitura (nenhum clique), contra o Explorador
+(pelo caminho do Kit) e o painel-nativo aberto (pelo caminho do e2e: achou
+`btn-acionar-luz-abajur` por `AutomationId`, área e centro). Dois achados:
+
+1. **`WindowControl` só casa janela do tipo `Window`.** A barra de tarefas é
+   `Pane` e não conecta. Vale para os dois consumidores (os apps deles são
+   `Window`); um alvo `Pane` exigiria outra busca.
+2. **O gate pegou o caso real:** os três pontos sondados (barra de tarefas,
+   centro do Explorador, botão da Tina) eram do Windows Terminal aberto por
+   cima, e `owns_point` respondeu `False` nos três. Um clique ali teria caído no
+   terminal.
+
 ---
 
 ## 10. Máquina de estados
