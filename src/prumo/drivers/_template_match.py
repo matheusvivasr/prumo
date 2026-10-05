@@ -45,7 +45,7 @@ def locate_multi_scale(
         resultado = cv2.matchTemplate(screen_bgr, candidato, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(resultado)
         if max_val > melhor_valor:
-            melhor_valor, melhor_loc, melhor_wh = max_val, max_loc, (w, h)
+            melhor_valor, melhor_loc, melhor_wh = max_val, (int(max_loc[0]), int(max_loc[1])), (w, h)
 
     if melhor_valor < confidence or melhor_loc is None or melhor_wh is None:
         return None

@@ -5,6 +5,13 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido (05/10/2026, tipos conferidos)
+
+- `mypy` no extra `dev`, no `pyproject` e no CI. Achou 12 problemas; os que importam: `pacing` podendo
+  ser `None` em três métodos do `PyAutoGuiDriver` — um `AttributeError` esperando o primeiro caminho
+  novo. `_confirmar_soltura_mouse` passou a funcionar sem pacing; `_segura_e_solta` recebe o pacing como
+  parâmetro obrigatório (o tipo garante). `Image.LANCZOS` → `Image.Resampling.LANCZOS`.
+
 ### Corrigido (05/10/2026, OCR — §9.11, §9.14)
 
 - `ocr.normalize` APAGAVA a letra acentuada em vez de tirar o acento ("Função" virava `funo`): em

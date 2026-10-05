@@ -49,12 +49,13 @@ teclado reais).
 
 **À prova de falhas (v0.9, ARCHITECTURE.md §9.14):** nenhum gate "deixa passar"
 calado, nenhuma interrupção deixa botão ou tecla preso no SO, nenhuma busca de
-janela escolhe por sorte. Lint focado em bug, piso de 90% de cobertura e CI em
+janela escolhe por sorte. Lint focado em bug, tipos conferidos (mypy), piso de 90% de cobertura e CI em
 Windows (Python 3.10–3.12).
 
 ```bash
 pip install -e ".[dev,anchors,ocr,uia]"
 ruff check src tests
+mypy src
 pytest --cov=prumo          # falha abaixo de 90% de cobertura
 ```
 

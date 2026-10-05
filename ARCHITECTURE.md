@@ -709,7 +709,7 @@ abaixo valem para código NOVO, não só para o que foi consertado.
    `except: pass`. O `ruff` do projeto cobra as duas coisas.
 8. **Toda espera tem prazo** em `time.monotonic()` — conferido laço a laço.
 
-Como se verifica: `ruff check src tests` (regras de bug, não de estilo),
+Como se verifica: `ruff check src tests` (regras de bug, não de estilo), `mypy src`,
 `pytest --cov=prumo` com piso de 90%, os testes `win32_real` (só leitura, contra
 o Windows de verdade: um `restype` errado truncaria handles em 64 bits sem erro)
 e o CI em Windows com Python 3.10–3.12. Um teste de conserto só vale se falhar

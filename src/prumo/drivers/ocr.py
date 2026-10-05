@@ -44,7 +44,7 @@ def read_lines(img, *, offset: Tuple[int, int] = (0, 0), lang: str = "pt-BR") ->
     import winocr
     from PIL import Image
 
-    big = img.resize((img.width * _SCALE, img.height * _SCALE), Image.LANCZOS)
+    big = img.resize((img.width * _SCALE, img.height * _SCALE), Image.Resampling.LANCZOS)
 
     async def _run():
         # `winocr` devolve um objeto assíncrono do WinRT, não uma corrotina:

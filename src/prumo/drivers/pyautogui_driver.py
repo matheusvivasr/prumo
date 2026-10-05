@@ -17,7 +17,7 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from prumo.core.exceptions import InputReleaseError, LocatorError
 from prumo.drivers.base import InputDriver
@@ -25,6 +25,8 @@ from prumo.drivers.pacing import HumanPacing, distancia
 from prumo.drivers.release import confirm_released
 
 logger = logging.getLogger("prumo")
+
+_PACING_PADRAO = HumanPacing()
 
 
 # nome do botão no pyautogui -> nome em `release.VIRTUAL_KEYS`; o que não
@@ -107,9 +109,11 @@ class PyAutoGuiDriver(InputDriver):
 
     def _confirmar_soltura_mouse(self, button: str) -> None:
         """Só devolve quando o SO diz que o botão está solto — nunca segue
-        com botão pressionado (ARCHITECTURE.md §9.9)."""
+        com botão pressionado (ARCHITECTURE.md §9.9). Funciona também sem
+        pacing (prazo padrão): soltura confirmada não é questão de ritmo."""
+        prazo = (self.pacing or _PACING_PADRAO).release_timeout_s
         try:
-            confirm_released((_BOTAO.get(button, "mouse_left"),), timeout=self.pacing.release_timeout_s)
+            confirm_released((_BOTAO.get(button, "mouse_left"),), timeout=prazo)
         except InputReleaseError as exc:
             raise InputReleaseError(f"botão '{button}' do mouse continua pressionado após o clique") from exc
 
@@ -141,19 +145,20 @@ class PyAutoGuiDriver(InputDriver):
         if self.pacing is None:
             self._keyboard.send(key)
             return
-        self._segura_e_solta([key])
+        self._segura_e_solta([key], self.pacing)
 
     def hotkey(self, *keys: str) -> None:
         if self.pacing is None:
             self._keyboard.send("+".join(keys))
             return
-        self._segura_e_solta(list(keys))
+        self._segura_e_solta(list(keys), self.pacing)
 
-    def _segura_e_solta(self, keys) -> None:
+    def _segura_e_solta(self, keys: List[str], p: HumanPacing) -> None:
         """Pressiona na ordem, segura um instante, solta na ordem inversa e
-        CONFIRMA que cada uma foi solta antes de devolver."""
-        p = self.pacing
-        apertadas = []
+        CONFIRMA que cada uma foi solta antes de devolver. O ritmo vem como
+        parâmetro: sem pacing não há "segurar" a ritmar, e o tipo garante que
+        ninguém chame isto sem ele."""
+        apertadas: List[str] = []
         try:
             for k in keys:
                 self._keyboard.press(k)
@@ -198,9 +203,10 @@ class PyAutoGuiDriver(InputDriver):
             raise
         # Mesma regra do `click` (§9.9): nunca segue com o botão pressionado. O `drag` era o único gesto de mouse
         # sem a confirmação — achado ao usá-lo no e2e do painel-nativo (01/10/2026), onde soltar é o que dispara o comando.
-        if self.pacing is not None:
+        p = self.pacing
+        if p is not None:
             self._confirmar_soltura_mouse("left")
-            time.sleep(self.pacing.varia(self.pacing.post_action_s))
+            time.sleep(p.varia(p.post_action_s))
 
     def screenshot(self, region: Optional[Tuple[int, int, int, int]] = None):
         return self._pyautogui.screenshot(region=region)

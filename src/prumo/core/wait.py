@@ -44,7 +44,7 @@ def poll_until(
             val = cond()
             if val:
                 return val
-        except retry_on as exc:  # type: ignore[misc]  - tupla vazia não captura nada
+        except retry_on as exc:  # tupla vazia não captura nada: nenhuma exceção vira nova tentativa
             ultimo = exc
         if time.monotonic() >= fim:
             extra = f" (último erro: {ultimo})" if ultimo is not None else ""

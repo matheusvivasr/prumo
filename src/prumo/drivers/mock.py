@@ -50,7 +50,7 @@ class MockDriver(InputDriver):
 
     def drag(self, start: Tuple[int, int], end: Tuple[int, int], *, duration: float = 0.5) -> None:
         self.calls.append(("drag", (start, end, duration)))
-        self.cursor = tuple(end)
+        self.cursor = (end[0], end[1])
 
     def screenshot(self, region: Optional[Tuple[int, int, int, int]] = None):
         self.calls.append(("screenshot", region))

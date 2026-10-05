@@ -367,3 +367,9 @@ def test_dpi_aware_process_says_nothing(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING, logger="prumo"):
         PyAutoGuiDriver._ensure_dpi_awareness()
     assert caplog.records == []
+
+
+def test_release_confirmation_also_works_without_pacing(ambiente):
+    # o mypy apontou: _confirmar_soltura_mouse lia self.pacing.release_timeout_s sem conferir None
+    PyAutoGuiDriver(pacing=None)._confirmar_soltura_mouse("right")
+    assert ambiente.soltura == [("mouse_right",)]
