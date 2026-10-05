@@ -5,6 +5,16 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Adicionado (05/10/2026, §9.12: todo gesto pelo automator)
+
+- `GUIAutomator.move_to()` (hover) e `GUIAutomator.drag()` (gate de oclusão nas duas pontas;
+  `occlusion_gate=False` declara um alvo fora da janela de propósito), ambos com a trava. Fecham a
+  lacuna que obrigava o consumidor a ir ao driver — o que a docstring do automator proíbe (§1.2) e o
+  que, com a trava ligada, pareceria a mão do usuário. O hp-prime-automation passou a usá-los e liga a
+  trava por padrão.
+- `MockDriver.probes`: as consultas da trava (`cursor_position`, `is_key_down`) saem de `calls`.
+  Ligar a trava não muda a sequência de ações que os testes dos consumidores conferem.
+
 ### Corrigido (05/10/2026, ARCHITECTURE.md §9.14: hardening, marco v0.9)
 
 - **Botão/tecla preso no SO:** Ctrl+C ou FAILSAFE no instante segurado do `click`, no meio de um

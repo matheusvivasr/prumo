@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from prumo.core.automator import GUIAutomator
-from prumo.core.exceptions import UserTakeoverError
+from prumo.core.exceptions import UserTakeoverError, WindowOccludedError
 from prumo.core.guard import TakeoverGuard
 from prumo.core.locator import PointLocator
 from prumo.core.state import GUIState
@@ -112,7 +112,17 @@ def test_without_a_guard_nothing_changes():
     automator.click("ok")
     driver.cursor = (0, 0)
     automator.click("ok")
-    assert driver.actions() == ["click", "click"]   # nem consulta o cursor nem a tecla
+    assert driver.actions() == ["click", "click"]
+    assert driver.probes == []                      # nem consulta o cursor nem a tecla
+
+
+def test_turning_the_guard_on_does_not_change_the_action_sequence():
+    # consumidores conferem "a última ação foi o clique"; a trava não pode mexer nisso
+    sem, com = MockDriver(), MockDriver()
+    make_automator(sem)[0].click("ok")
+    make_automator(com, guard=TakeoverGuard(com))[0].click("ok")
+    assert com.calls == sem.calls
+    assert com.probes                               # a trava consultou — fora de `calls`
 
 
 def test_guarded_automator_refuses_the_next_action_after_the_user_moves():
@@ -154,3 +164,62 @@ def test_keyboard_actions_keep_the_reference_where_the_mouse_was_left():
     assert [a for a in driver.actions() if a in {"click", "write", "hotkey", "press"}] == [
         "click", "write", "hotkey", "press",
     ]
+
+
+# --- move_to e drag pelo automator (o consumidor não precisa ir ao driver) -----
+
+
+class OccludingWindow(FakeWindow):
+    """Janela cujo pixel à direita de x=600 está coberto por outra."""
+
+    def owns_point(self, x, y):
+        return x <= 600
+
+
+def test_hover_through_the_automator_keeps_the_guard_reference():
+    # o "hover incremental" do menu Qt do hp-prime-automation: mover, depois clicar
+    driver = MockDriver()
+    automator, _ = make_automator(driver, guard=TakeoverGuard(driver))
+    automator.click("ok")
+    automator.move_to(500, 650, duration=0.3, rotulo="perto do menu")
+    automator.click_at(500, 600, rotulo="menu Editar")      # não acusa: o movimento foi nosso
+    assert ("move_to", (500, 650, 0.3)) in driver.calls
+
+
+def test_the_same_hover_straight_on_the_driver_looks_like_the_user():
+    # por que o move_to do automator existe: pelo driver, a trava não fica sabendo
+    driver = MockDriver()
+    automator, _ = make_automator(driver, guard=TakeoverGuard(driver))
+    automator.click("ok")
+    driver.move_to(500, 650, duration=0.3)
+    with pytest.raises(UserTakeoverError):
+        automator.click_at(500, 600, rotulo="menu Editar")
+
+
+def test_drag_checks_both_ends_for_occlusion():
+    driver = MockDriver()
+    automator = GUIAutomator(window=OccludingWindow(), driver=driver, locators={},
+                             state_detector=lambda: GUIState.READY)
+    with pytest.raises(WindowOccludedError, match=r"medidor \(fim\)"):
+        automator.drag((100, 100), (700, 100), rotulo="medidor")   # solta sobre outra janela
+    assert "drag" not in driver.actions()
+
+
+def test_drag_through_the_automator_keeps_the_guard_reference():
+    driver = MockDriver()
+    automator, _ = make_automator(driver, guard=TakeoverGuard(driver))
+    automator.drag((100, 100), (300, 100))
+    automator.click_at(300, 100)                              # o cursor ficou onde o arrasto terminou
+    assert driver.actions().count("click") == 1
+
+
+def test_drag_onto_another_app_on_purpose_skips_only_the_occlusion_gate():
+    # a macro de captura: PrtScn, depois arrasta sobre a sobreposição de recorte (outro processo)
+    driver = MockDriver()
+    automator = GUIAutomator(window=OccludingWindow(), driver=driver, locators={},
+                             state_detector=lambda: GUIState.READY, guard=TakeoverGuard(driver))
+    automator.drag((3, 3), (1363, 765), rotulo="seleção da tela", occlusion_gate=False)
+    assert ("drag", ((3, 3), (1363, 765), 0.5)) in driver.calls
+    driver.keys_down.add("esc")
+    with pytest.raises(UserTakeoverError):     # a trava continua valendo
+        automator.drag((3, 3), (1363, 765), occlusion_gate=False)

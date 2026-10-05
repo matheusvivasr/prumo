@@ -17,9 +17,10 @@ Uso, com o driver direto:
     guard.mark()               # DEPOIS de cada gesto
 
 Ou `GUIAutomator(..., guard=TakeoverGuard(driver))`, que faz as duas
-chamadas em toda ação. Todo gesto que mexe no mouse precisa passar pelo
-caminho guardado (ou chamar `mark()` depois): um `driver.move_to` solto entre
-duas ações parece, para a trava, o usuário mexendo no mouse.
+chamadas em toda ação — inclusive `move_to` (hover) e `drag`. Todo gesto que
+mexe no mouse precisa passar pelo automator (ou, com o driver direto, chamar
+`mark()` depois): um `driver.move_to` solto entre duas ações parece, para a
+trava, o usuário mexendo no mouse.
 """
 
 from __future__ import annotations

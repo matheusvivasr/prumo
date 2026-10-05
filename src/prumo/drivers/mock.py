@@ -27,6 +27,9 @@ class MockDriver(InputDriver):
     read_clipboard_return: str = ""
     cursor: Tuple[int, int] = (0, 0)
     keys_down: Set[str] = field(default_factory=set)
+    # consultas de estado de entrada (as da trava, §9.12) ficam FORA de `calls`:
+    # são bookkeeping, não ações — ligar a trava não muda a sequência de ações
+    probes: List[Tuple[str, Any]] = field(default_factory=list)
 
     def click(self, x: int, y: int, *, button: str = "left", clicks: int = 1) -> None:
         self.calls.append(("click", (x, y, button, clicks)))
@@ -71,11 +74,11 @@ class MockDriver(InputDriver):
         self.calls.append(("write_clipboard", text))
 
     def cursor_position(self) -> Tuple[int, int]:
-        self.calls.append(("cursor_position", None))
+        self.probes.append(("cursor_position", None))
         return self.cursor
 
     def is_key_down(self, key: str) -> bool:
-        self.calls.append(("is_key_down", key))
+        self.probes.append(("is_key_down", key))
         return key in self.keys_down
 
     def actions(self) -> List[str]:

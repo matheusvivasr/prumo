@@ -112,6 +112,11 @@ class GUIAutomator:
         clique fora do mapa de locators (softkey, menu, chrome nativo)."""
         if self.guard is not None:
             self.guard.check(f"click_at ({x}, {y}) {rotulo}".rstrip())
+        self._garantir_ponto(x, y, rotulo)
+        self.driver.click(x, y)
+        self._mark()
+
+    def _garantir_ponto(self, x: int, y: int, rotulo: str) -> None:
         owns = getattr(self.window, "owns_point", None)
         if owns is not None and not owns(x, y):
             raise WindowOccludedError(
@@ -119,7 +124,45 @@ class GUIAutomator:
                 f"a janela-alvo tem foco mas não está visível ali. Tire a janela "
                 f"de cima (ou mova a janela-alvo) antes de continuar."
             )
-        self.driver.click(x, y)
+
+    def move_to(self, x: int, y: int, *, duration: float = 0.0, rotulo: str = "") -> None:
+        """Move o mouse sem clicar (hover — ex.: o popup de menu do Qt só
+        reconhece o item sob o cursor com movimento de verdade, §9.4). Passa
+        pela trava (§9.12): use isto, não `driver.move_to` — com a trava
+        ligada, um movimento direto no driver parece, no gesto seguinte, a
+        mão do usuário. Não confere oclusão: mover não aciona nada."""
+        if self.guard is not None:
+            self.guard.check(f"move_to ({x}, {y}) {rotulo}".rstrip())
+        self.driver.move_to(x, y, duration=duration)
+        self._mark()
+
+    def drag(
+        self,
+        start: Tuple[int, int],
+        end: Tuple[int, int],
+        *,
+        duration: float = 0.5,
+        rotulo: str = "",
+        occlusion_gate: bool = True,
+    ) -> None:
+        """Arrasto com o gate de oclusão nas DUAS pontas — soltar fora da
+        janela-alvo dispararia o gesto noutro app — e com a trava (§9.12).
+        Use isto, não `driver.drag`.
+
+        `occlusion_gate=False` é para quando o alvo É outro app, de propósito
+        (ex.: a sobreposição de recorte do Windows depois do PrtScn). A trava
+        continua valendo: o que se desliga é só a exigência de que as pontas
+        sejam da janela-alvo."""
+        op = self._next_op()
+        if self.guard is not None:
+            self.guard.check(f"drag {rotulo}".rstrip())
+        if occlusion_gate:
+            self._garantir_ponto(start[0], start[1], f"{rotulo} (início)".strip())
+            self._garantir_ponto(end[0], end[1], f"{rotulo} (fim)".strip())
+        else:
+            logger.info("op=%s drag sem gate de oclusão (alvo fora da janela, declarado): %s", op, rotulo)
+        logger.info("op=%s action=drag(%s -> %s, duration=%s)", op, start, end, duration)
+        self.driver.drag(start, end, duration=duration)
         self._mark()
 
     def press(self, key: str) -> None:
