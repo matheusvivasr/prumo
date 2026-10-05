@@ -87,8 +87,11 @@ def test_precheck_finds_window_when_not_alive():
 
 def test_precheck_handles_interruption_before_action():
     handled = []
-    interruptions = InterruptionManager()
-    interruptions.register(Interruption(name="popup", detect=lambda: True, handle=lambda: handled.append(1)))
+    aberto = [True]
+    interruptions = InterruptionManager(confirm_timeout=0.05)
+    # popup de verdade: o handle o fecha (um que nunca fecha vira PopupError, test_events)
+    interruptions.register(Interruption(name="popup", detect=lambda: aberto[0],
+                                        handle=lambda: (handled.append(1), aberto.__setitem__(0, False))))
 
     automator = make_automator(interruptions=interruptions)
     automator.precheck()

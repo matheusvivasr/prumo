@@ -708,6 +708,11 @@ abaixo valem para código NOVO, não só para o que foi consertado.
 7. **`except Exception` só com motivo escrito** (`# noqa: BLE001 - ...`), e nunca
    `except: pass`. O `ruff` do projeto cobra as duas coisas.
 8. **Toda espera tem prazo** em `time.monotonic()` — conferido laço a laço.
+9. **Tratou, confira.** Um popup tratado tem de SAIR da tela: o
+   `InterruptionManager` espera ele sumir depois do `handle()` e levanta
+   `PopupError` se continuar (o "voltar ao estado anterior" do §12, que nunca
+   tinha sido implementado — a exceção existia e nada a levantava). Popups
+   empilhados são tratados todos; um que reaparece sem parar é erro, não laço.
 
 Como se verifica: `ruff check src tests` (regras de bug, não de estilo), `mypy src`,
 `pytest --cov=prumo` com piso de 90%, os testes `win32_real` (só leitura, contra

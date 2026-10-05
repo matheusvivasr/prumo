@@ -5,6 +5,14 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido (05/10/2026, §12 e §9.14 regra 9: popup tratado tem de sair)
+
+- `InterruptionManager.check_and_handle` chamava `handle()` e seguia sem conferir: um "OK" que não
+  fechava o popup deixava a ação seguinte cair nele, sem erro; com dois popups empilhados, só o
+  primeiro era tratado. Agora confere que cada um saiu da tela (`confirm_timeout`), trata todos os
+  presentes e levanta `PopupError` — que existia e nada levantava — se um não fecha ou se reaparece
+  além de `max_rounds`. Testes reescritos com popups que fecham de verdade.
+
 ### Corrigido (05/10/2026, tipos conferidos)
 
 - `mypy` no extra `dev`, no `pyproject` e no CI. Achou 12 problemas; os que importam: `pacing` podendo
