@@ -27,7 +27,8 @@ def _no_duplicate_keys(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
 
 def load_config(path: Union[str, Path]) -> Dict[str, Any]:
     path = Path(path)
-    with path.open("r", encoding="utf-8") as f:
+    # utf-8-sig: o Bloco de Notas do Windows salva com BOM, e o json puro o recusa
+    with path.open("r", encoding="utf-8-sig") as f:
         data = json.load(f, object_pairs_hook=_no_duplicate_keys)
     validate_config(data)
     return data

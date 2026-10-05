@@ -15,6 +15,9 @@ from prumo.core.exceptions import LocatorError
 
 
 def _validate_unit(field: str, value: float) -> None:
+    # bool é int em Python: `"x": true` no JSON passaria como 1.0 (o canto da janela)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise LocatorError(f"'{field}'={value!r} não é número (veio {type(value).__name__})")
     if not (0.0 <= value <= 1.0):
         raise LocatorError(f"'{field}'={value} fora do intervalo [0.0, 1.0]")
 

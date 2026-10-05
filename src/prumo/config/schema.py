@@ -17,6 +17,8 @@ SUPPORTED_SCHEMA_VERSION = 1
 
 
 def validate_config(data: Dict[str, Any]) -> None:
+    if not isinstance(data, dict):
+        raise LocatorError(f"o mapa de configuração precisa ser um objeto JSON (veio {type(data).__name__})")
     version = data.get("schema_version")
     if version != SUPPORTED_SCHEMA_VERSION:
         raise LocatorError(
@@ -39,6 +41,8 @@ def validate_config(data: Dict[str, Any]) -> None:
 
 
 def _validate_locator_spec(name: str, spec: Dict[str, Any]) -> None:
+    if not isinstance(spec, dict):
+        raise LocatorError(f"locator '{name}': precisa ser um objeto (veio {type(spec).__name__})")
     kind = spec.get("type")
     if kind not in ("point", "region"):
         raise LocatorError(f"locator '{name}': type {kind!r} inválido (use 'point' ou 'region')")

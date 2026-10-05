@@ -5,6 +5,15 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido (05/10/2026, auditoria semântica: configuração)
+
+- `"x": true` no mapa era aceito como coordenada 1.0 (bool é int em Python) — o canto da janela, calado.
+  Coordenada agora tem de ser número de verdade.
+- `"x": "0.5"` estourava `TypeError` cru, sem dizer qual locator; agora é `LocatorError` com o nome.
+- Mapa salvo pelo Bloco de Notas (UTF-8 com BOM) era recusado pelo `json`; agora carrega (`utf-8-sig`).
+- JSON que não é objeto (ou locator que não é objeto) vira erro claro em vez de `AttributeError`.
+- Os mapas reais conferidos com a validação nova: o da calculadora (51 locators) e o exemplo passam.
+
 ### Corrigido (05/10/2026, auditoria semântica: âncoras e seleção por nome)
 
 - `ListSelector.select` só rolava para BAIXO com o alvo fora da parte visível: com a lista aberta no
