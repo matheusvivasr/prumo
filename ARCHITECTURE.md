@@ -153,12 +153,14 @@ prumo/
 │       │   ├── locator.py        # PointLocator, RegionLocator
 │       │   ├── state.py          # GUIState, StateManager
 │       │   ├── exceptions.py
+│       │   ├── listsel.py        # ListSelector (§9.11)
 │       │   ├── events.py         # Interruption, InterruptionManager
 │       │   └── transaction.py
 │       │
 │       ├── drivers/
 │       │   ├── base.py           # InputDriver (contrato)
 │       │   ├── pyautogui_driver.py
+│       │   ├── ocr.py            # leitura de texto opcional (§9.11)
 │       │   └── window.py         # WindowManager
 │       │
 │       ├── config/
@@ -255,12 +257,14 @@ class InputDriver:
     def click(self, x, y): ...
     def press(self, key): ...
     def hotkey(self, *keys): ...
-    def write(self, text): ...
+    def write(self, text, *, delay=0.0): ...
     def drag(self, start, end, *, duration=0.5): ...
     def screenshot(self, region=None): ...
     def screen_size(self): ...
-    def move_to(self, x, y): ...
+    def move_to(self, x, y, *, duration=0.0): ...
     def locate_on_screen(self, template_path, *, confidence=0.85): ...
+    def read_clipboard(self): ...
+    def write_clipboard(self, text): ...
 ```
 
 Implementação inicial: PyAutoGUI. Futuras: `WindowsUIDriver`, `LinuxUIDriver`,
@@ -331,6 +335,254 @@ automator.color_matches("indicador_status", (0, 255, 0), tolerance=10)  # -> boo
 Os dois chamam `self.resolve(name)` — uma subclasse que resolve locators de outro
 jeito (§9.2, `AnchorZone` por exemplo) herda `color_at`/`color_matches` de graça, só
 precisa sobrescrever `resolve()`.
+
+### 9.4. `read_clipboard` / `write_clipboard`
+
+Muitas aplicações não expõem o próprio estado (resultado calculado, texto processado)
+de nenhum outro jeito além de "selecionar e copiar" — ler pixel por pixel (OCR) é o
+último recurso, não o primeiro. `read_clipboard`/`write_clipboard` fecham essa ponte
+com o clipboard do sistema operacional:
+
+```python
+driver.write_clipboard("texto")   # escreve
+texto = driver.read_clipboard()   # lê
+```
+
+Implementação Windows via `win32clipboard`, sempre com `CF_UNICODETEXT` — `CF_TEXT`
+(ANSI/cp1252) descarta qualquer glifo fora da code page, e aplicações têm motivo real
+pra usar Unicode fora do ASCII básico (achado ao integrar a HP Prime: notação
+científica usa U+1D07, não "e" ASCII — normalizar esse tipo de glifo específico da
+aplicação é responsabilidade de quem consome, não deste driver).
+
+**Cuidado documentado, não uma limitação do driver**: nem todo caminho que parece
+"copiar" de fato escreve no clipboard do SO. Um item de menu clicado via automação
+pode fechar e devolver a interface a um estado consistente sem chamar a API de
+clipboard de verdade (achado real: um clique instantâneo ou diagonal num popup Qt não
+registrava a cópia, mesmo fechando o menu normalmente — só `move_to(..., duration>0)`
+em linha reta, sem trocar de eixo no meio do caminho, gerava os eventos de hover que o
+popup exige antes de aceitar o clique). Quem constrói a sequência de clique deve
+confirmar a escrita de verdade (ex.: sequência de clipboard antes/depois) antes de
+assumir que "o menu fechou" significa "a ação rodou".
+
+### 9.5. `write(text, *, delay=0.0)`
+
+Algumas aplicações derrubam caractere quando `write()` digita rápido demais (achado
+real: um campo de diálogo nativo da HP Prime recebeu `"TESTEXX"` como `"TEXX"` — o
+`keyboard.write()` por trás não deu conta). `delay=0` (padrão) mantém o comportamento
+rápido de sempre — escreve tudo de uma vez; `delay > 0` escreve um caractere por vez,
+com pausa entre eles. Não tem como saber de antemão se uma aplicação precisa disso —
+é um parâmetro pra quando o sintoma aparecer, não uma mudança de comportamento padrão.
+
+### 9.6. `GUIAutomator.wait_for_color_change`
+
+```python
+cor_nova = automator.wait_for_color_change(
+    color_at, from_color=(255, 255, 255), timeout=300.0, poll_interval=1.0
+)
+```
+
+Generaliza um padrão que `color_based_detector` (§10.1) já usa pra decidir *o quê* uma
+cor significa, mas resolvido aqui pro problema de *esperar* uma cor mudar antes de
+agir. Nasceu de um achado real: o popup de verificação de sintaxe da HP Prime pode
+levar minutos pra aparecer num programa grande (CPU do processo perto de 100% o tempo
+todo via `IsHungAppWindow`/tempo de CPU — ocupado de verdade, não travado). Um sleep
+fixo curto clica no botão de fechar o popup antes dele existir — na prática clica de
+novo no botão que ABRE a verificação, reiniciando-a em vez de fechar o resultado.
+Levanta `AutomationTimeoutError` se `timeout` esgotar sem mudança — nunca clica às
+cegas nesse caso.
+
+`color_at` é qualquer callable sem argumento que devolve (r, g, b) — não precisa ser
+`self.color_at(locator_name)`; útil quando o pixel de interesse não é um locator do
+mapa (ex.: chrome nativo do app, fora do teclado virtual — mesmo caso de uso do menu
+em §9.4). Uma aplicação que precisa vigiar **mais de um** ponto ao mesmo tempo (ex.:
+ícone de sucesso E ícone de erro em posições diferentes, porque a caixa do popup
+centraliza pelo tamanho da mensagem) combina os dois numa única `color_at` que devolve
+o primeiro que sair do zero (fundo) — a espera em si continua sendo um só ponto.
+
+### 9.7. `SoftkeyRow`
+
+```python
+from prumo.core.softkeys import SoftkeyRow
+
+softkeys = SoftkeyRow(count=6, y_offset=298, geometry_key=window.geometry)
+x, y = softkeys.resolve(1)  # 2ª de 6 fatias iguais
+```
+
+Padrão comum o bastante (calculadoras, POS, kiosks — qualquer barra de N botões de
+largura igual num rodapé de altura fixa) pra não ficar preso a uma aplicação. Não é
+`AnchorZone` (§9.2): não precisa de casamento de imagem porque a geometria é pura
+aritmética — a fileira fica sempre no mesmo pixel em y (chrome do app) e cada fatia
+tem largura igual, proporcional à largura da janela. **Achado real** que motivou o
+parâmetro `y_offset` ser pixel fixo, não fração: um erro de 10px nesse valor fez um
+clique cair fora do botão sem erro nenhum — o app simplesmente ignorou o clique.
+Sempre que uma sequência de softkey "não fizer nada visível", suspeitar do offset
+antes de qualquer outra coisa.
+
+### 9.8. Combo de modificador (Shift/Ctrl/Alt) + tecla — sempre confirmar o latch antes de agir
+
+Achado real (HP Prime, 22/09/2026): uma primeira tentativa de usar `Shift+Esc` pra
+limpar o editor de programa concluiu, errado, que a combinação "não fazia nada" —
+clicar Shift e Esc em sequência rápida (sem esperar) fez o Esc ser interpretado
+**sozinho** (fechou o editor, comportamento de Esc normal) em vez de disparar a função
+de Shift (que de fato limpa o conteúdo, com diálogo de confirmação). O erro só foi
+percebido quando o usuário pediu pra **verificar visualmente** o indicador de Shift
+ativo (`⬆S`, canto superior esquerdo da tela da HP Prime — a maioria dos apps
+touch/embarcados tem um indicador equivalente) antes de clicar a segunda tecla; com
+esse delay + confirmação, a combinação funcionou na primeira tentativa.
+
+**Regra geral, não específica da HP Prime:** ao automatizar qualquer combo
+modificador+tecla numa aplicação onde o modificador é "clique pra ativar, clique na
+próxima tecla pra usar" (em vez de "segurar" — comum em apps touch/embarcados, que não
+distinguem tecla-pressionada-e-solta de tecla-segurada), **nunca** encadeie os dois
+cliques sem uma pausa nem confirme que o combo "não funciona" sem antes checar o
+indicador visual de estado. Um "não funciona" observado sem essa checagem é
+indistinguível de "funciona, mas o timing do teste estava errado" — a conclusão errada
+custa caro (pode levar a manter um workaround pior, tipo loop de backspace em vez de um
+comando de limpar-tudo). Delay mínimo seguro: o mesmo `_ACTION_DELAY`/pausa já usado
+entre os dois cliques de qualquer sequência Shift+tecla que já funciona na aplicação
+(ex.: `create_program` na HP Prime já usava esse delay entre Shift e a tecla seguinte,
+só não tinha sido testado pra Esc especificamente).
+
+**Ressalva (não confirmada — rebaixada no mesmo dia):** confirmar o combo funcionando
+sob clique manual pausado **pode não** garantir que ele é seguro sob a cadência de uma
+automação rodando vários ciclos em sequência rápida (`write_program()` chamado várias
+vezes seguidas numa macro, por exemplo). Chegou a ser observado o `Shift+Esc` corromper
+conteúdo dentro da macro (sobrou texto do programa anterior colado antes do novo) —
+**mas a observação está contaminada:** o usuário estava mexendo nas janelas durante a
+rodada, o que dessincronizou foco e travou teclas (mesma causa do nome digitado
+corrompido e do falso-negativo do `verify_syntax` naquela sessão). Não há, portanto,
+evidência limpa de que o combo falhe sob cadência. Status: **hipótese a testar** —
+próxima rodada ao vivo roda `write_program()` várias vezes seguidas, sem intervenção
+humana, e confirma ou descarta. (O fallback por backspace que existia em `clear_editor()`
+foi **removido** no mesmo dia: ele próprio corrompia o fluxo entre programas. Ver §9.9.)
+
+**Lição que sobra, essa sim confirmada:** teste ao vivo de automação de GUI exige mãos
+fora do teclado/mouse durante a macro — intervenção manual "pra ajudar" produz sintomas
+indistinguíveis de bug (foco roubado, tecla travada, texto corrompido) e contamina
+qualquer conclusão tirada daquela rodada.
+
+### 9.9. Passo confirmado: ritmo humano, soltura confirmada, estado visto antes de agir
+
+Achado real (hp-prime-automation, 22/09/2026). Uma macro rodou "com sucesso" e
+reportou 4 de 5 programas com FALHOU. Nenhuma das falhas era do programa:
+
+1. **Foco não é visibilidade.** A HP Prime estava ativa (`isActive` verdadeiro),
+   mas a janela do app do Claude cobria a mesma região. Os cliques caíram nela, e
+   a cor "lida" do indicador de Shift, (16,16,16), era a da barra lateral do
+   Claude.
+2. **Pixel fixo apodrece.** O offset do indicador de Shift tinha sido calibrado
+   com a janela em outro tamanho e passou a apontar pra borda.
+3. **O fallback "segue em frente" transformou uma falha pequena em corrupção.**
+   Sem o indicador, `clear_editor` caía pra "150 backspaces e continua". Isso
+   funcionava no editor em branco, mas entre um programa e outro deixava o
+   código antigo e colava o novo por cima.
+4. **Digitação crua corrompe texto.** No emulador, número digitado depois de
+   letra sai como a letra alfa da mesma tecla ("2"→"Z", "8"→"R"). Colar pela
+   área de transferência chega exato.
+
+**Regra geral (vale pra qualquer aplicação):**
+
+- **Nenhuma ação depende só de a anterior "não ter dado erro".** Depois de cada
+  ação, espere o estado que ela deveria produzir
+  (`GUIAutomator.wait_for_template`, `wait_for_template_gone`). Só então vem a
+  próxima. Se o estado não aparecer, **pare**, salve uma foto da janela e
+  relate. Nada de fallback que continue a partir de um estado desconhecido.
+- **Cheque a ausência do que não deveria estar lá** (`is_on_screen`), por
+  exemplo um popup de erro, logo depois da espera.
+- **Antes de clicar, pergunte ao SO de quem é o pixel**
+  (`WindowManager.owns_point` via `WindowFromPoint`). Se for de outra janela,
+  `GUIAutomator.click_at` levanta `WindowOccludedError`.
+- **Ritmo humano** (`drivers/pacing.HumanPacing`, padrão do `PyAutoGuiDriver`):
+  - trajeto do mouse proporcional à distância, com easing;
+  - mira antes de apertar;
+  - botão ou tecla segurado por um instante;
+  - **soltura confirmada no SO** (`GetAsyncKeyState` / `keyboard.is_pressed`,
+    senão `InputReleaseError`);
+  - pausa depois de cada ação.
+
+  O ritmo é o piso de tempo. Quem autoriza a próxima ação é o estado visto na
+  tela.
+- **App pesado** (emulador, software de engenharia): timeouts de estado
+  generosos (padrão de 15 s). Errar pelo lado da paciência custa segundos; errar
+  pelo lado da pressa corrompe a sessão.
+- **Estado por template, não por pixel fixo**, sempre que o estado tiver algo
+  visual único: um recorte PNG casa em qualquer posição e escala.
+
+### 9.10. Aplicação com árvore de acessibilidade (UI Automation): prefira-a a pixel
+
+Achado real (`hp-prime-CK`, 29/09/2026). O HP Connectivity Kit (Qt5) expõe
+menus, árvores, diálogos e editores por UIA; o emulador da mesma calculadora
+expõe as teclas como botões, mas o display não devolve texto. Onde a árvore
+existe, localizar por **classe/nome** elimina coordenada, template e a
+sensibilidade a tema/escala. Onde não existe (display do emulador), continua
+valendo §9.2/§9.9. Não há driver UIA no `prumo` ainda: o único consumidor é o
+`hp-prime-CK` (`ck/kit.py`), e por §22 ele só sobe pra `drivers/` quando
+aparecer um segundo. As regras abaixo, porém, são genéricas:
+
+1. **`ValuePattern.SetValue` pode mudar só a tela.** Se o modelo do app não
+   registrar a edição, "salvar" não grava e fechar descarta o texto **sem
+   perguntar**. Faça uma edição real (uma tecla inócua) depois do SetValue e
+   confirme relendo.
+2. **Conferir persistência = fechar e reabrir.** Ler com o editor aberto devolve
+   a memória, não o que foi gravado.
+3. **`SelectionItemPattern.Select` não é clique.** Pode mover a seleção da lista
+   sem o painel associado trocar. Clique e confira qual item ficou **ativo**.
+4. **Item novo pode nascer somente-leitura** (visto: aba criada na sessão do
+   editor). Cheque `IsReadOnly` antes de escrever; a falha silenciosa perde texto.
+5. **Menus de contexto do Qt não populam a árvore UIA de forma confiável**
+   (intermitente, e sempre nos submenus). Navegue por teclado com posições
+   fixas declaradas em UM lugar, e use como gate o **efeito** (diálogo esperado,
+   item novo), nunca o rótulo lido.
+6. **Diálogo modal pode ser filho da janela principal**, não janela de topo;
+   e caixa de erro (`QMessageBox`) precisa ser lida e dispensada, senão trava a UI.
+7. **Ação sem retorno visível** (ex.: "Enviar") só vale confirmada por um efeito
+   observável em outro lugar; nome já existir não prova que o conteúdo mudou.
+8. **`window.isActive` pode levantar** com a janela em primeiro plano em
+   transição (erro 1400) — `WindowManager._esta_ativa` tenta de novo.
+9. **Um funil só para entrada, com gate antes e soltura confirmada depois.** Clique
+   só se o ponto pertence ao processo-alvo; tecla só com o alvo em primeiro plano; e o SO
+   confirma que botão e modificadores foram soltos. No app lento (o emulador) isso é o
+   `HumanPacing`/`InputReleaseError`; no app rápido (o Kit) o risco é o alvo errado — mas o
+   custo é o mesmo: tecla presa no emulador só sai reiniciando-o.
+10. **Uma alteração de estrutura só vale depois de fechar e reabrir o documento** (visto: aba
+    nova/renomeada num editor; salvar sem reabrir descarta o conteúdo escrito nela). Estrutura
+    e conteúdo nunca no mesmo save; confirme sempre reabrindo.
+11. **Feche janela MDI por menu, não pelo botão da moldura**, que pode estar fora/coberto.
+12. **Clique de mouse continua sujeito ao §9.9** (oclusão): mesmo com UIA, use o
+   gate de "o ponto pertence ao processo-alvo" antes de clicar.
+
+Detalhes e a lista completa de peculiaridades do Kit: `hp-prime-CK/CLAUDE.md`.
+
+### 9.11. Ler texto e escolher item de lista por nome — `drivers/ocr.py` + `core/listsel.py`
+
+Achado (hp-prime-automation, 29/09/2026). Rodar um programa pelo **Catálogo →
+Execut.** (a UX real, e a que se mede) exige escolher a linha pelo NOME numa
+lista que reordena por MRU. Foto velha e posição guardada erram de linha
+(§9.9). Em vez de cada aplicação reinventar isso, a lógica ficou na
+biblioteca, em duas peças que não sabem que existe uma HP Prime:
+
+- **`prumo.drivers.ocr`** (extra `[ocr]`: `winocr` + `pillow`) — `read_lines(img)`
+  → `TextLine` com caixa; `similarity(a, b)` tolerante a 0/O e pontuação. É
+  instrumento de **leitura**, não interação. ~0,3 s por chamada: só onde ler é
+  o objetivo; estado conhecido continua sendo template (§9.2) ou cor (§9.3).
+- **`prumo.core.listsel.ListSelector`** — recebe `read_rows()`, `move_down()`,
+  `move_up()` e faz o resto: relê a lista a **cada passo**, decide o sentido,
+  rola se o alvo está fora da parte visível, **para em `AmbiguousItemError`**
+  se dois itens casam igualmente (casamento exato vence um quase igual) e só
+  termina quando o item DESTACADO é o pedido. Quem lê as linhas é plugável
+  (OCR hoje; template/acessibilidade amanhã), então testa-se sem GUI com uma
+  lista falsa (`tests/unit/test_listsel.py`).
+
+O que sobra na aplicação é só o específico: a geometria da lista, a cor do
+destaque, as teclas de mover. Custo a reduzir depois (não feito): cachear, por
+nome, o recorte da linha depois da 1ª seleção conferida e trocar OCR por
+template nas seguintes.
+
+**Dois modos de teste** (regra do usuário, 29/09/2026), independentes da
+biblioteca: *validar* ("o código funciona?") pode usar o atalho da interface do
+emulador (copiar/colar); *UX* ("otimizar código quase pronto") usa **somente
+cliques nos botões** da calculadora, com as limitações de uma real. Ver
+`hp-prime-automation`, `HpPrimeCalculator.executar(nome, modo=...)`.
 
 ---
 

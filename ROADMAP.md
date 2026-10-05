@@ -41,10 +41,17 @@ fácil de acabar com uma `HPPrimeAutomator` disfarçada de `GUIAutomator`.
   resolução de pixel sem abrir a HP Prime. `HpPrimeKeyboard`/`Result` como classes
   dedicadas não existiram — a legenda de tecla foi pra `core/keymap.py` (só
   metadado normal/shift/alpha, sem geometria).
-- [ ] **Etapa 9 — API semântica.** `press_key(codigo)` e `color_matches()` existem;
-  `ExpressionParser`/`type_expression()`/`get_result()`/`reset()` — que exigiriam ler o
-  display da calculadora, não só clicar teclas — ainda não. Ver "O que ainda não foi
-  migrado" no `README.md` do `hp-prime-automation`.
+- [ ] **Etapa 9 — API semântica.** `press_key(codigo)`, `color_matches()`,
+  `get_result()` e a ponte de programação (`write_program()`/`verify_syntax()`/
+  `delete_current_program()`, 25/08/2026 — cria, cola via clipboard + "Editar > Colar",
+  verifica sintaxe pela cor do popup com espera de verdade, nunca `Ctrl+C`/`Ctrl+V`)
+  existem, e já verificaram programas reais (`Prova1_Combinado.hpprgm` 1437 linhas,
+  `Prova2_Combinado.hpprgm` 3558 linhas — achou um erro de `LOCAL` escopado a bloco de
+  verdade). Capacidades genéricas promovidas pro `prumo` nesse processo:
+  `read_clipboard`/`write_clipboard`, `move_to(..., duration=)`, `write(text, delay=)`,
+  `wait_for_color_change` e `core.softkeys.SoftkeyRow` (ARCHITECTURE.md §9.4-§9.7).
+  `ExpressionParser`/`type_expression()`/`reset()` ainda não. Ver "Escrevendo e
+  verificando programas" no `README.md` do `hp-prime-automation`.
 - [ ] **Etapa 10 — Transações.** `with calc.transaction(): ...` já existe em
   `GUIAutomator` (Etapa 1) e `HpPrimeCalculator` herda; nenhuma macro real usa ainda.
 - [x] **Etapa 11 — End-to-end.** Geometria validada e **clique real confirmado**

@@ -15,11 +15,16 @@ dependencies = [
     "pyautogui>=0.9.54",
     "pygetwindow>=0.0.9",
     "keyboard>=0.13.5",
+    "pywin32>=306; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+]
+ocr = [
+    "winocr>=0.0.15; sys_platform == 'win32'",
+    "pillow>=10.0",
 ]
 anchors = [
     "opencv-python>=4.8.0",

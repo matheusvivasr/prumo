@@ -1,13 +1,17 @@
 # CLAUDE.md — prumo
 
 <!-- heranca:raiz -->
-> **Herda [`../CLAUDE.md`](../CLAUDE.md)** — convenções do espaço de trabalho: idioma
+> **Herda [`../../CLAUDE.md`](../../CLAUDE.md)** — convenções do espaço de trabalho: idioma
 > pt-BR, SemVer, commits de arrumação sem co-autoria, serviços de logon em
 > `matheusvivasr-com\inic\` e a regra de classificação de pastas. **Não repita nada
-> disso aqui** — este arquivo guarda só o que é específico de `prumo`.
+> disso aqui** — este arquivo guarda só o que é específico de `prumo`. Herda também o
+> padrão de projeto do guarda-chuva, ver [`../ROADMAP.md`](../ROADMAP.md).
 
-Camada de abstração reutilizável para automação determinística de GUI. Projeto solto
-na raiz (sem guarda-chuva): não compartilha âncora com nenhum outro — é biblioteca
+Camada de abstração reutilizável para automação determinística de GUI. Migrou de
+`D:\USP\Matheus\prumo` (solto na raiz) pra cá em 08/09/2026, quando o `crivo` virou o
+segundo consumidor da mesma âncora e o guarda-chuva `the-skill-project` nasceu (ver
+`../../CLAUDE.md`, nota "Por que o the-skill-project nasceu"). Continua sem compartilhar
+âncora com nenhum projeto fora deste guarda-chuva — é biblioteca
 pura, testável sem hardware nem aplicação instalada, e não sobe no `inic/`.
 
 ## Regra central: nunca implementar a aplicação-alvo antes do core

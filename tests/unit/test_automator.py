@@ -197,3 +197,110 @@ def test_color_at_survives_subclass_overriding_resolve():
     automator.color_at("enter_key")
     _, region = driver.calls[-1]
     assert region == (1000, 1000, 1, 1)  # resolve() dobrado -> 500*2, 500*2
+
+
+def test_wait_for_color_change_returns_new_color_once_it_differs():
+    automator = make_automator()
+    colors = iter([(255, 255, 255), (255, 255, 255), (16, 82, 16)])
+
+    result = automator.wait_for_color_change(
+        lambda: next(colors), from_color=(255, 255, 255), timeout=1.0, poll_interval=0.01
+    )
+
+    assert result == (16, 82, 16)
+
+
+def test_wait_for_color_change_raises_timeout_if_color_never_changes():
+    automator = make_automator()
+
+    with pytest.raises(AutomationTimeoutError):
+        automator.wait_for_color_change(
+            lambda: (255, 255, 255), from_color=(255, 255, 255), timeout=0.05, poll_interval=0.01
+        )
+
+
+def test_wait_for_color_change_respects_tolerance():
+    """Uma cor "quase igual" à de origem (dentro da tolerância) ainda conta
+    como "não mudou" — não só igualdade exata."""
+    automator = make_automator()
+    colors = iter([(250, 250, 250), (16, 82, 16)])
+
+    result = automator.wait_for_color_change(
+        lambda: next(colors), from_color=(255, 255, 255), timeout=1.0, poll_interval=0.01, tolerance=10
+    )
+
+    assert result == (16, 82, 16)
+
+
+# --- §9.9: oclusão, espera por template -------------------------------------
+
+
+class _JanelaCoberta(FakeWindow):
+    def owns_point(self, x, y):
+        return False
+
+
+class _JanelaVisivel(FakeWindow):
+    def owns_point(self, x, y):
+        return True
+
+
+def test_click_recusa_ponto_coberto_por_outra_janela():
+    from prumo.core.exceptions import WindowOccludedError
+
+    driver = MockDriver()
+    auto = make_automator(window=_JanelaCoberta(), driver=driver)
+    with pytest.raises(WindowOccludedError):
+        auto.click("enter_key")
+    assert not any(c[0] == "click" for c in driver.calls)
+
+
+def test_click_segue_quando_ponto_pertence_a_janela():
+    driver = MockDriver()
+    auto = make_automator(window=_JanelaVisivel(), driver=driver)
+    auto.click("enter_key")
+    assert any(c[0] == "click" for c in driver.calls)
+
+
+class _LocateSequencia(MockDriver):
+    """locate_on_screen devolve None nas primeiras `n` sondas, depois acha."""
+
+    def __init__(self, n, pos=(10.0, 20.0)):
+        super().__init__()
+        self._n = n
+        self._pos = pos
+
+    def locate_on_screen(self, template_path, *, confidence=0.85):
+        self.calls.append(("locate_on_screen", (template_path, confidence)))
+        if self._n > 0:
+            self._n -= 1
+            return None
+        return self._pos
+
+
+def test_wait_for_template_espera_ate_aparecer():
+    driver = _LocateSequencia(2)
+    auto = make_automator(driver=driver)
+    assert auto.wait_for_template("x.png", timeout=2, poll_interval=0.01) == (10.0, 20.0)
+    assert sum(1 for c in driver.calls if c[0] == "locate_on_screen") == 3
+
+
+def test_wait_for_template_levanta_timeout_se_nunca_aparece():
+    auto = make_automator(driver=MockDriver())
+    with pytest.raises(AutomationTimeoutError):
+        auto.wait_for_template("nunca.png", timeout=0.05, poll_interval=0.01)
+
+
+def test_wait_for_template_gone_levanta_timeout_se_nao_some():
+    driver = MockDriver(locate_on_screen_return={"fica.png": (1.0, 1.0)})
+    auto = make_automator(driver=driver)
+    with pytest.raises(AutomationTimeoutError):
+        auto.wait_for_template_gone("fica.png", timeout=0.05, poll_interval=0.01)
+
+
+def test_human_pacing_duracao_de_trajeto_respeita_piso_e_teto():
+    from prumo.drivers.pacing import HumanPacing
+
+    p = HumanPacing(jitter=0)
+    assert p.move_duration(1) == p.move_min_s
+    assert p.move_duration(100000) == p.move_max_s

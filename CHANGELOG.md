@@ -5,6 +5,54 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido (02/10/2026)
+
+- `PyAutoGuiDriver.drag` agora confirma a soltura do botão do mouse e respeita a pausa pós-ação, como o `click`
+  (§9.9) — era o único gesto de mouse sem a confirmação. Achado ao usá-lo no e2e do `painel-nativo` (Tina), onde
+  *soltar* o mouse sobre o medidor de brilho é o que dispara o comando.
+
+### Adicionado (02/10/2026): segundo consumidor externo
+
+- O `the-me-project/Tina/painel-nativo/tests/e2e/` usa `WindowManager` (ativar com confirmação, gate `owns_point`) e
+  `PyAutoGuiDriver` + `HumanPacing` para dirigir um app WPF com mouse e teclado reais; a UI Automation entra só para
+  achar controles por `AutomationId` e ler estado (mesmo padrão do `hp-prime-CK`, §9.10). Sem código novo no prumo
+  além da correção acima. Travas que o consumidor acrescentou e que valem como receita: gate de ponto antes de todo
+  gesto, ESC aborta, e "o mouse saiu do lugar entre dois gestos" = o usuário assumiu, para.
+
+### Adicionado (29/09/2026, ARCHITECTURE.md §9.10: UI Automation)
+
+- Seção §9.10 com as regras genéricas achadas automatizando o Connectivity Kit
+  por UIA (SetValue que não suja o modelo, Select ≠ clique, menus Qt por
+  teclado, persistência = fechar e reabrir...). Sem código novo de driver: o
+  único consumidor é o `hp-prime-CK` (§22).
+
+### Adicionado (29/09/2026, ARCHITECTURE.md §9.11)
+
+- `prumo.drivers.ocr` (extra `[ocr]`): `read_lines`, `TextLine`, `similarity`.
+- `prumo.core.listsel.ListSelector`, `Row`, `AmbiguousItemError`,
+  `ItemNotFoundError`: escolher item de lista por nome, relendo a cada passo.
+  Testes em `tests/unit/test_listsel.py`.
+
+### Corrigido (29/09/2026)
+
+- `WindowManager.activate()` não levanta mais `PyGetWindowException` (1400)
+  quando a janela em primeiro plano está em transição: `_esta_ativa` tenta de
+  novo e só então responde "não está ativa".
+
+### Adicionado (22/09/2026, ARCHITECTURE.md §9.9: passo confirmado)
+
+- `drivers/pacing.HumanPacing`, ligado por padrão no `PyAutoGuiDriver`
+  (`pacing=None` volta ao comportamento cru). Traz trajeto do mouse
+  proporcional à distância, mira, tecla ou botão segurado por um instante,
+  **soltura confirmada no SO** e pausa depois de cada ação.
+- `InputReleaseError`: o SO não confirmou que o botão ou a tecla foi solto.
+- `WindowManager.owns_point(x, y)` (`WindowFromPoint`) e
+  `GUIAutomator.click_at(x, y)`: recusam clicar num ponto coberto por outra
+  janela (`WindowOccludedError`). `click()` passou a usar `click_at`.
+- `GUIAutomator.wait_for_template`, `wait_for_template_gone` e `is_on_screen`:
+  o gate entre etapas. Ação, espera o estado visto na tela, e só então a
+  próxima ação.
+
 ### Corrigido
 
 - `PyAutoGuiDriver.locate_on_screen` só testava o tamanho exato do template —
@@ -36,6 +84,31 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
   (nenhuma aplicação tem indicador calibrado ainda) — testado isoladamente.
 - `tools/mapper.py` ganha captura de âncora: um `POINT` pode virar template PNG
   (`templates/{nome}.png`) na hora, sem precisar montar o recorte na mão depois.
+- `InputDriver.read_clipboard`/`write_clipboard` (§9.4) — ponte com o clipboard do SO
+  via `win32clipboard` (`CF_UNICODETEXT`, não `CF_TEXT` — perde glifo fora do cp1252).
+  Nasceu resolvendo a leitura do resultado calculado na HP Prime (não tem outro jeito
+  de ler o valor sem OCR). Extra dependência `pywin32` (só Windows). Testado via
+  `MockDriver` (`read_clipboard_return`, `write_clipboard` registrado em `calls`).
+- `InputDriver.move_to(x, y, *, duration=0.0)` — parâmetro novo, opcional e
+  retrocompatível. Achado real na HP Prime: um popup de menu nativo (Qt) só
+  reconhece o item sob o cursor com movimento incremental de verdade; um salto
+  instantâneo (`duration=0`, o padrão) não gera hover e o clique seguinte não
+  executa o comando, mesmo fechando o popup normalmente.
+- `InputDriver.write(text, *, delay=0.0)` — parâmetro novo, opcional e
+  retrocompatível. Achado real: um diálogo nativo da HP Prime derrubou caractere
+  (`"TESTEXX"` chegou como `"TEXX"`) com `write()` de uma vez; `delay > 0` escreve
+  um caractere por vez.
+- `GUIAutomator.wait_for_color_change` (§9.6) — espera um `color_at()` sair de uma
+  cor de origem, com timeout (`AutomationTimeoutError` se esgotar). Achado real:
+  o popup de "Verif." da HP Prime pode levar minutos pra aparecer num programa
+  grande (~3500 linhas, CPU do processo perto de 100% o tempo todo); um sleep
+  fixo curto clicava no botão de fechar antes do popup existir, reiniciando a
+  verificação em vez de fechar o resultado.
+- `core.softkeys.SoftkeyRow` (§9.7) — grade de N fatias horizontais iguais numa
+  fileira de altura fixa (F1-F6 de uma calculadora, ou qualquer barra de botões
+  de largura igual). Promovido do `hp-prime-automation`. Não usa casamento de
+  imagem como `AnchorZone` — é aritmética pura (pixel fixo em y, proporcional
+  em x). Testado (`tests/unit/test_softkeys.py`) sem tela real.
 
 ### Pendente
 

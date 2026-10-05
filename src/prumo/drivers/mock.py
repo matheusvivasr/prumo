@@ -19,12 +19,13 @@ class MockDriver(InputDriver):
     screenshot_return: Any = None
     screen_size_return: Tuple[int, int] = (1920, 1080)
     locate_on_screen_return: Dict[str, Optional[Tuple[float, float]]] = field(default_factory=dict)
+    read_clipboard_return: str = ""
 
     def click(self, x: int, y: int, *, button: str = "left", clicks: int = 1) -> None:
         self.calls.append(("click", (x, y, button, clicks)))
 
-    def move_to(self, x: int, y: int) -> None:
-        self.calls.append(("move_to", (x, y)))
+    def move_to(self, x: int, y: int, *, duration: float = 0.0) -> None:
+        self.calls.append(("move_to", (x, y, duration)))
 
     def press(self, key: str) -> None:
         self.calls.append(("press", key))
@@ -32,8 +33,8 @@ class MockDriver(InputDriver):
     def hotkey(self, *keys: str) -> None:
         self.calls.append(("hotkey", keys))
 
-    def write(self, text: str) -> None:
-        self.calls.append(("write", text))
+    def write(self, text: str, *, delay: float = 0.0) -> None:
+        self.calls.append(("write", (text, delay)))
 
     def drag(self, start: Tuple[int, int], end: Tuple[int, int], *, duration: float = 0.5) -> None:
         self.calls.append(("drag", (start, end, duration)))
@@ -51,6 +52,13 @@ class MockDriver(InputDriver):
     ) -> Optional[Tuple[float, float]]:
         self.calls.append(("locate_on_screen", (template_path, confidence)))
         return self.locate_on_screen_return.get(template_path)
+
+    def read_clipboard(self) -> str:
+        self.calls.append(("read_clipboard", None))
+        return self.read_clipboard_return
+
+    def write_clipboard(self, text: str) -> None:
+        self.calls.append(("write_clipboard", text))
 
     def actions(self) -> List[str]:
         """Nomes das ações registradas, na ordem — útil em asserts de teste."""

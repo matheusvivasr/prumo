@@ -30,3 +30,39 @@ def test_locate_on_screen_returns_configured_position():
 def test_locate_on_screen_returns_none_when_not_configured():
     driver = MockDriver()
     assert driver.locate_on_screen("ausente.png") is None
+
+
+def test_read_clipboard_returns_configured_value():
+    driver = MockDriver(read_clipboard_return="42")
+    assert driver.read_clipboard() == "42"
+    assert driver.calls == [("read_clipboard", None)]
+
+
+def test_write_clipboard_registers_text():
+    driver = MockDriver()
+    driver.write_clipboard("PROGRAM_TEXT")
+    assert driver.calls == [("write_clipboard", "PROGRAM_TEXT")]
+
+
+def test_move_to_registers_duration_default_zero():
+    driver = MockDriver()
+    driver.move_to(10, 20)
+    assert driver.calls == [("move_to", (10, 20, 0.0))]
+
+
+def test_move_to_registers_explicit_duration():
+    driver = MockDriver()
+    driver.move_to(10, 20, duration=0.2)
+    assert driver.calls == [("move_to", (10, 20, 0.2))]
+
+
+def test_write_registers_delay_default_zero():
+    driver = MockDriver()
+    driver.write("ola")
+    assert driver.calls == [("write", ("ola", 0.0))]
+
+
+def test_write_registers_explicit_delay():
+    driver = MockDriver()
+    driver.write("ola", delay=0.08)
+    assert driver.calls == [("write", ("ola", 0.08))]
