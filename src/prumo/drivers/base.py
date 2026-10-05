@@ -46,3 +46,15 @@ class InputDriver(ABC):
 
     @abstractmethod
     def write_clipboard(self, text: str) -> None: ...
+
+    # Leitura do estado de entrada do SO — base da trava de "o usuário
+    # assumiu" (`core.guard.TakeoverGuard`, ARCHITECTURE.md §9.12).
+
+    @abstractmethod
+    def cursor_position(self) -> Tuple[int, int]: ...
+
+    @abstractmethod
+    def is_key_down(self, key: str) -> bool:
+        """Estado da tecla NESTE instante (nome do `keyboard`: "esc",
+        "shift"...). Um toque que começou e terminou entre duas consultas
+        não aparece aqui."""

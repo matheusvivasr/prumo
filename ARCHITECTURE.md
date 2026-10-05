@@ -584,6 +584,54 @@ emulador (copiar/colar); *UX* ("otimizar código quase pronto") usa **somente
 cliques nos botões** da calculadora, com as limitações de uma real. Ver
 `hp-prime-automation`, `HpPrimeCalculator.executar(nome, modo=...)`.
 
+### 9.12. O que os consumidores tiveram de escrever por fora — e voltou pra cá
+
+Achado de 05/10/2026, lendo os dois consumidores que usam o `prumo` **sem** o
+`GUIAutomator`: o `hp-prime-CK` (`ck/kit.py`, entrada por UI Automation) e o
+e2e do `painel-nativo` da Tina (`tests/e2e/operador.py`, driver direto). Os dois
+desceram ao `ctypes` do Win32 para coisas que não são de app nenhum — é o sinal
+de que o §22 ainda não fechava: escrever uma aplicação nova exigia sair do
+framework. Quatro peças subiram:
+
+- **Foco por processo — `WindowManager.owns_foreground()` / `ensure_foreground()`.**
+  "A próxima tecla vai pro app certo?" é pergunta de **processo**, não de
+  janela: um menu ou diálogo do próprio app em primeiro plano é outra janela
+  top-level, mas a tecla é dele (o mesmo critério do `owns_point`). Falha
+  fechado (sem janela na frente, ou sem PID da janela-alvo → `False`).
+  `ensure_foreground()` ativa uma vez e reconfere; se outro processo segue na
+  frente, `WindowOccludedError`. O `GUIAutomator` não precisa: o `precheck()`
+  já ativa antes de toda tecla.
+- **"O usuário assumiu" — `core.guard.TakeoverGuard`.** A automação toma o
+  mouse de quem está na máquina e não pode ser teimosa: `check()` antes de cada
+  gesto levanta `UserTakeoverError` se a tecla de abortar (padrão: ESC) está
+  apertada ou se o cursor andou mais que `tolerance_px` (padrão: 8) desde o
+  `mark()` feito depois do gesto anterior. No `GUIAutomator` é **opt-in**
+  (`guard=TakeoverGuard(driver)`), e a checagem vem **antes** do `activate()`
+  — quem acabou de pegar o mouse não pode ter o foco roubado de volta. Dois
+  limites declarados: (1) a tecla é lida no instante da checagem — abortar é
+  **segurar** ESC, um toque entre dois gestos passa despercebido; (2) todo
+  gesto precisa passar pelo caminho guardado ou chamar `mark()` depois — um
+  `driver.move_to` solto parece, para a trava, a mão do usuário. Exige do
+  driver `cursor_position()` e `is_key_down()` (contrato do §9).
+- **Espera genérica — `core.wait.poll_until(cond, timeout=, what=)`.** O
+  `StateManager.wait_until` espera um `GUIState` e os `wait_for_template*`
+  esperam imagem; faltava "chame isto até dar verdadeiro". Exceção dentro de
+  `cond` sobe na hora, salvo as listadas em `retry_on` (ex.: "o controle ainda
+  não existe"), que viram nova tentativa e aparecem na mensagem do timeout.
+  Engolir erro por padrão seria falha calada.
+- **Soltura confirmada para qualquer caminho de entrada —
+  `drivers.release.confirm_released()`.** A regra do §9.9 valia só dentro do
+  `PyAutoGuiDriver`; quem manda entrada por UIA/`SendKeys` não tinha de onde
+  importá-la. Padrão: botões esquerdo e direito + Shift/Ctrl/Alt. O
+  `PyAutoGuiDriver` passou a usar a mesma função.
+
+Ficou de fora, de propósito: o gate de ponto **pela UI Automation**
+(`ControlFromPoint` com nova tentativa no `COMError`), que também está
+duplicado nos dois. Ele depende do `uiautomation` e é a primeira peça de um
+driver de UIA (marco v0.6 do [ROADMAP.md](ROADMAP.md)) — sobe junto com ele,
+não sozinho. A migração dos consumidores para estas peças é trabalho de cada
+um deles, não deste repositório.
+
 ---
 
 ## 10. Máquina de estados

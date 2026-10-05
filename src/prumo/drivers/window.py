@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass
 from typing import Tuple
 
-from prumo.core.exceptions import WindowActivationError, WindowNotFoundError
+from prumo.core.exceptions import WindowActivationError, WindowNotFoundError, WindowOccludedError
 
 logger = logging.getLogger("prumo")
 
@@ -210,6 +210,58 @@ class WindowManager:
         # "Editar" da HP Prime foi barrado como "oclusão" na 1ª versão desta
         # checagem). Janela de OUTRO processo por cima continua barrada.
         return self._pid(raiz or hwnd) == self._pid(alvo)
+
+    def owns_foreground(self) -> bool:
+        """`True` se a janela em primeiro plano é do MESMO PROCESSO da
+        janela-alvo — i.e., uma tecla enviada agora chega ao app certo.
+
+        Não é o `isActive` que o `activate()` confere: um menu ou diálogo do
+        próprio app em primeiro plano é outra janela top-level, mas a tecla
+        continua sendo dele — e é justamente pra esses que se manda tecla
+        (mesmo critério de processo do `owns_point`). Os dois consumidores
+        externos que usam o `WindowManager` sem o `GUIAutomator` escreveram
+        esta checagem cada um em ctypes (hp-prime-CK, 29/09/2026; e2e do
+        painel-nativo da Tina, 02/10/2026) — ARCHITECTURE.md §9.12.
+
+        Falha fechado: sem janela em primeiro plano (transição, tela
+        bloqueada) ou sem PID da janela-alvo, responde `False`. Fora do
+        Windows devolve `True` (sem como checar)."""
+        if sys.platform != "win32":
+            return True
+        window = self._window or self.find()
+        alvo = getattr(window, "_hWnd", None)
+        if alvo is None:
+            return True
+        frente = self._foreground_hwnd()
+        if not frente:
+            return False
+        pid_alvo = self._pid(alvo)
+        return pid_alvo != 0 and self._pid(frente) == pid_alvo
+
+    def ensure_foreground(self) -> None:
+        """Garante que a próxima tecla vai pro processo-alvo: se o primeiro
+        plano não é dele, ativa (`activate()`, com o contorno de foreground
+        lock) e confere de novo. Levanta `WindowOccludedError` se mesmo assim
+        o primeiro plano for de outro processo — tecla em janela errada é pior
+        que erro: no emulador vira entrada de calculadora, no app do usuário
+        vira texto digitado onde ele estava (ARCHITECTURE.md §9.12)."""
+        if self.owns_foreground():
+            return
+        self.activate()
+        if not self.owns_foreground():
+            raise WindowOccludedError(
+                f"o primeiro plano não é do processo da janela '{self.title}' — "
+                f"as teclas não serão enviadas"
+            )
+
+    @staticmethod
+    def _foreground_hwnd() -> int:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        user32.GetForegroundWindow.restype = wintypes.HWND
+        return int(user32.GetForegroundWindow() or 0)
 
     @staticmethod
     def _pid(hwnd) -> int:

@@ -17,6 +17,7 @@ from typing import Callable, Dict, Iterator, Mapping, Optional, Tuple
 
 from prumo.core.events import InterruptionManager
 from prumo.core.exceptions import AutomationTimeoutError, LocatorError, WindowOccludedError
+from prumo.core.guard import TakeoverGuard
 from prumo.core.locator import Locator, RegionLocator
 from prumo.core.recovery import RecoveryManager
 from prumo.core.state import GUIState, StateManager
@@ -37,13 +38,18 @@ class GUIAutomator:
         state_detector: Callable[[], GUIState],
         interruptions: Optional[InterruptionManager] = None,
         recovery: Optional[RecoveryManager] = None,
+        guard: Optional[TakeoverGuard] = None,
     ):
+        """`guard` (opt-in) liga a trava de "o usuário assumiu" em toda ação
+        (ARCHITECTURE.md §9.12): checa antes, marca onde deixou o mouse
+        depois."""
         self.window = window
         self.driver = driver
         self.locators: Dict[str, Locator] = dict(locators)
         self.state = StateManager(state_detector)
         self.interruptions = interruptions or InterruptionManager()
         self.recovery = recovery or RecoveryManager()
+        self.guard = guard
         self._op_ids = itertools.count(1)
 
     # --- locators -----------------------------------------------------
@@ -63,7 +69,11 @@ class GUIAutomator:
 
     # --- pré-condição / interrupções (ARCHITECTURE.md §12.1) -----------
 
-    def precheck(self) -> None:
+    def precheck(self, what: str = "") -> None:
+        # a trava vem ANTES do activate(): quem acabou de assumir o mouse não
+        # pode ter o foco roubado de volta (§9.12)
+        if self.guard is not None:
+            self.guard.check(what)
         if not self.window.is_alive():
             self.window.find()
         self.window.activate()
@@ -83,9 +93,13 @@ class GUIAutomator:
     def _next_op(self) -> int:
         return next(self._op_ids)
 
+    def _mark(self) -> None:
+        if self.guard is not None:
+            self.guard.mark()
+
     def click(self, locator_name: str) -> None:
         op = self._next_op()
-        self.precheck()
+        self.precheck(f"click {locator_name}")
         x, y = self.resolve(locator_name)
         logger.info("op=%s action=click(%s) absoluto=(%s, %s)", op, locator_name, x, y)
         self.click_at(x, y, rotulo=locator_name)
@@ -96,6 +110,8 @@ class GUIAutomator:
         `WindowOccludedError` em vez de clicar numa janela por cima
         (ARCHITECTURE.md §9.9). Use isto, não `driver.click`, pra qualquer
         clique fora do mapa de locators (softkey, menu, chrome nativo)."""
+        if self.guard is not None:
+            self.guard.check(f"click_at ({x}, {y}) {rotulo}".rstrip())
         owns = getattr(self.window, "owns_point", None)
         if owns is not None and not owns(x, y):
             raise WindowOccludedError(
@@ -104,24 +120,28 @@ class GUIAutomator:
                 f"de cima (ou mova a janela-alvo) antes de continuar."
             )
         self.driver.click(x, y)
+        self._mark()
 
     def press(self, key: str) -> None:
         op = self._next_op()
-        self.precheck()
+        self.precheck(f"press {key}")
         logger.info("op=%s action=press(%s)", op, key)
         self.driver.press(key)
+        self._mark()
 
     def hotkey(self, *keys: str) -> None:
         op = self._next_op()
-        self.precheck()
+        self.precheck(f"hotkey {'+'.join(keys)}")
         logger.info("op=%s action=hotkey(%s)", op, "+".join(keys))
         self.driver.hotkey(*keys)
+        self._mark()
 
     def write(self, text: str, *, delay: float = 0.0) -> None:
         op = self._next_op()
-        self.precheck()
+        self.precheck("write")
         logger.info("op=%s action=write(%r, delay=%s)", op, text, delay)
         self.driver.write(text, delay=delay)
+        self._mark()
 
     # --- leitura de pixel (decisões simples: indicador verde/vermelho...) -
 

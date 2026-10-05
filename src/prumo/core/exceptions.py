@@ -32,6 +32,13 @@ class InputReleaseError(AutomationError):
     ações (ARCHITECTURE.md §9.9)."""
 
 
+class UserTakeoverError(AutomationError):
+    """O usuário tomou a frente — apertou a tecla de abortar ou mexeu no
+    mouse entre dois gestos da automação. Não é defeito do app: é a
+    automação parando de disputar o mouse com quem é dono dele
+    (ARCHITECTURE.md §9.12)."""
+
+
 class LocatorError(AutomationError):
     """Locator inválido, ausente do mapa, ou mapa de configuração malformado."""
 

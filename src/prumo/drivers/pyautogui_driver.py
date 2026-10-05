@@ -20,10 +20,12 @@ from typing import Optional, Tuple
 from prumo.core.exceptions import InputReleaseError
 from prumo.drivers.base import InputDriver
 from prumo.drivers.pacing import HumanPacing, distancia
+from prumo.drivers.release import confirm_released
 
 
-# códigos de tecla virtual do Windows pros botões do mouse (GetAsyncKeyState)
-_VK_BOTAO = {"left": 0x01, "right": 0x02, "middle": 0x04}
+# nome do botão no pyautogui -> nome em `release.VIRTUAL_KEYS`; o que não
+# estiver aqui ("left", "primary"...) é o esquerdo, como sempre foi
+_BOTAO = {"right": "mouse_right", "secondary": "mouse_right", "middle": "mouse_middle"}
 
 
 class PyAutoGuiDriver(InputDriver):
@@ -80,16 +82,10 @@ class PyAutoGuiDriver(InputDriver):
     def _confirmar_soltura_mouse(self, button: str) -> None:
         """Só devolve quando o SO diz que o botão está solto — nunca segue
         com botão pressionado (ARCHITECTURE.md §9.9)."""
-        if sys.platform != "win32":
-            return
-        import ctypes
-
-        vk = _VK_BOTAO.get(button, 0x01)
-        prazo = time.monotonic() + self.pacing.release_timeout_s
-        while ctypes.windll.user32.GetAsyncKeyState(vk) & 0x8000:
-            if time.monotonic() > prazo:
-                raise InputReleaseError(f"botão '{button}' do mouse continua pressionado após o clique")
-            time.sleep(0.02)
+        try:
+            confirm_released((_BOTAO.get(button, "mouse_left"),), timeout=self.pacing.release_timeout_s)
+        except InputReleaseError as exc:
+            raise InputReleaseError(f"botão '{button}' do mouse continua pressionado após o clique") from exc
 
     def move_to(self, x: int, y: int, *, duration: float = 0.0) -> None:
         """`duration=0` pula direto (rápido, o caso comum). Alguns popups
@@ -214,3 +210,12 @@ class PyAutoGuiDriver(InputDriver):
             win32clipboard.SetClipboardText(text, win32clipboard.CF_UNICODETEXT)
         finally:
             win32clipboard.CloseClipboard()
+
+    def cursor_position(self) -> Tuple[int, int]:
+        # mesmo sistema de coordenadas do clique: o DPI awareness foi ligado
+        # no construtor, antes de qualquer leitura (§9.9)
+        x, y = self._pyautogui.position()
+        return (int(x), int(y))
+
+    def is_key_down(self, key: str) -> bool:
+        return bool(self._keyboard.is_pressed(key))

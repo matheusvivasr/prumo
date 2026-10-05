@@ -5,6 +5,20 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Adicionado (05/10/2026, ARCHITECTURE.md §9.12: o que os consumidores escreviam por fora)
+
+- `WindowManager.owns_foreground()` / `ensure_foreground()`: a próxima tecla vai pro **processo** certo
+  (popup do próprio app conta; falha fechado sem PID). Duplicado em ctypes no hp-prime-CK e no e2e da Tina.
+- `core.guard.TakeoverGuard` + `UserTakeoverError`: ESC segurado ou mouse mexido entre dois gestos
+  (> 8 px) param a automação. Opt-in no `GUIAutomator` (`guard=`), checado antes do `activate()`.
+  `InputDriver` ganhou `cursor_position()` e `is_key_down()` (`MockDriver`: `cursor`, `keys_down`;
+  o cursor do mock agora acompanha clique, movimento e arrasto).
+- `core.wait.poll_until(cond, timeout=, what=, retry_on=)`: espera genérica com prazo. Duplicada
+  (`esperar`/`_esperar`) nos dois consumidores.
+- `drivers.release.confirm_released()` / `held_inputs()`: soltura confirmada para quem manda entrada
+  sem o `PyAutoGuiDriver` (UIA, `SendKeys`). O `PyAutoGuiDriver` passou a usá-la.
+- Fica para o driver de UIA (v0.6): o gate de ponto por `ControlFromPoint`, também duplicado.
+
 ### Corrigido (02/10/2026)
 
 - `PyAutoGuiDriver.drag` agora confirma a soltura do botão do mouse e respeita a pausa pós-ação, como o `click`
