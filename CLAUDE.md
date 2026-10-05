@@ -53,3 +53,9 @@ biblioteca, não manter uma segunda cópia da lógica.
   GUI real aberta está testando a camada errada.
 - **Nomenclatura:** `prumo/core` e `prumo/drivers` não podem importar nada de
   `prumo/applications` — a dependência é sempre de cima para baixo.
+- **À prova de falhas (desde 05/10/2026):** as oito regras do
+  [ARCHITECTURE.md §9.14](ARCHITECTURE.md) valem para código novo — nada de gate
+  calado, nada preso no SO, nada escolhido por sorte. Verificar com o `.venv` do
+  projeto: `ruff check src tests` e `pytest --cov=prumo` (piso de 90%). Ao mexer
+  em algo que um consumidor usa, rode também a suíte do `hp-prime-automation`
+  contra este código (`PYTHONPATH=<prumo>/src`).

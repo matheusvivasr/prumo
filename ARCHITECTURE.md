@@ -674,6 +674,48 @@ Validado ao vivo em 05/10/2026, só leitura (nenhum clique), contra o Explorador
    cima, e `owns_point` respondeu `False` nos três. Um clique ali teria caído no
    terminal.
 
+### 9.14. À prova de falhas (v0.9) — as regras que o hardening deixou
+
+Auditoria de 05/10/2026: cada `except`, cada `return True` de gate, cada laço e
+cada gesto do driver real, lidos como "como isto falha calado?". As regras
+abaixo valem para código NOVO, não só para o que foi consertado.
+
+1. **Nenhuma interrupção deixa botão ou tecla preso no SO.** Entre apertar e
+   soltar, qualquer exceção (Ctrl+C, FAILSAFE, `dragTo` interrompido) solta o que
+   foi apertado e deixa a exceção seguir. A soltura de emergência não move o
+   mouse (quem interrompeu pode ter assumido) e desliga o FAILSAFE só nela (senão
+   o próprio FAILSAFE impediria a soltura). Um Shift preso vale para a máquina
+   inteira, não só para o app.
+2. **Gate que não consegue checar avisa.** Fora do Windows, ou com uma janela
+   sem handle Win32, os gates deixam passar — mas dizem no log, uma vez por
+   proteção, que ela está desligada (`drivers/_plataforma`). Levantar ali
+   quebraria consumidores sem proteger nada em produção (o `pygetwindow` real
+   sempre tem handle); calar é o que não pode.
+3. **Falhar fechado no que dá para checar.** PID 0 (janela destruída) nunca vira
+   "mesmo processo"; sem janela em primeiro plano, "não é dela".
+4. **Nada escolhe por sorte.** `WindowManager.find()` com mais de uma candidata
+   desempata pelo título exato e, sem desempate, levanta
+   `AmbiguousWindowError` (que não herda de `WindowNotFoundError`: quem trata "não
+   achei" abrindo o app abriria mais uma instância).
+5. **A recuperação não insiste no que piora.** `UserTakeoverError` e
+   `InputReleaseError` sobem na hora, sem nova tentativa; as outras falhas
+   contam como tentativa perdida e vão pro log uma a uma.
+6. **O erro real aparece no lugar do sintoma.** Template ausente, ilegível ou em
+   caminho com acento vira erro na leitura, não "timeout esperando aparecer";
+   cor com número errado de canais vira `ValueError` (`zip(strict=True)`), não
+   uma comparação de menos canais; processo sem DPI awareness vira aviso no log,
+   não clique fora do lugar.
+7. **`except Exception` só com motivo escrito** (`# noqa: BLE001 - ...`), e nunca
+   `except: pass`. O `ruff` do projeto cobra as duas coisas.
+8. **Toda espera tem prazo** em `time.monotonic()` — conferido laço a laço.
+
+Como se verifica: `ruff check src tests` (regras de bug, não de estilo),
+`pytest --cov=prumo` com piso de 90%, os testes `win32_real` (só leitura, contra
+o Windows de verdade: um `restype` errado truncaria handles em 64 bits sem erro)
+e o CI em Windows com Python 3.10–3.12. Um teste de conserto só vale se falhar
+contra o código antigo: os 8 do driver real foram rodados contra a versão
+anterior e falharam, os 19 de comportamento passaram nas duas.
+
 ---
 
 ## 10. Máquina de estados

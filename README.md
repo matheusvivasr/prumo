@@ -34,19 +34,28 @@ que o projeto entrega — detalhes em [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Estado do projeto
 
-Core funcional (v0.1.0): locators, janela, driver, máquina de estados,
-interrupções, recuperação, logging estruturado e `MockDriver` — testados sem
-nenhuma GUI real (39 testes, `pytest`). Ver [ROADMAP.md](ROADMAP.md) para o detalhe
-de cada etapa e o que falta.
+Versão declarada `0.1.0` (as versões marcam etapas do [ROADMAP.md](ROADMAP.md),
+não releases). Além do core (locators, janela, driver, estados, interrupções,
+recuperação, logging, `MockDriver`), já existem: passo confirmado com ritmo
+humano e soltura confirmada no SO, gate de oclusão e de primeiro plano por
+processo, trava de "o usuário assumiu" (ESC / mouse mexido), OCR opcional e a
+primeira fatia do driver de UI Automation.
 
-A HP Prime (via
-[`hp-prime-automation`](https://github.com/matheusvivasr/hp-prime-automation)) é a
-primeira aplicação-alvo e, mais adiante, o primeiro consumidor externo real do
-framework — não faz parte deste repositório.
+Três aplicações consomem o framework, nenhuma delas dentro deste repositório: o
+emulador da HP Prime
+([`hp-prime-automation`](https://github.com/matheusvivasr/hp-prime-automation)), o HP
+Connectivity Kit e um painel desktop WPF (testes ponta a ponta com mouse e
+teclado reais).
+
+**À prova de falhas (v0.9, ARCHITECTURE.md §9.14):** nenhum gate "deixa passar"
+calado, nenhuma interrupção deixa botão ou tecla preso no SO, nenhuma busca de
+janela escolhe por sorte. Lint focado em bug, piso de 90% de cobertura e CI em
+Windows (Python 3.10–3.12).
 
 ```bash
-pip install -e ".[dev]"
-pytest
+pip install -e ".[dev,anchors,ocr,uia]"
+ruff check src tests
+pytest --cov=prumo          # falha abaixo de 90% de cobertura
 ```
 
 ## Documentação

@@ -5,6 +5,29 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido (05/10/2026, ARCHITECTURE.md §9.14: hardening, marco v0.9)
+
+- **Botão/tecla preso no SO:** Ctrl+C ou FAILSAFE no instante segurado do `click`, no meio de um
+  `hotkey`/`press` ou no trajeto do `drag` saíam com o botão ou a tecla APERTADA no Windows inteiro.
+  Agora soltam (sem mover o mouse; FAILSAFE desligado só na soltura) e a interrupção segue.
+- **Recuperação disputando o mouse:** `RecoveryManager` repetia passos depois de `UserTakeoverError`
+  e `InputReleaseError`. Agora esses sobem na hora; cada tentativa perdida vai pro log;
+  `max_attempts < 1` é recusado.
+- **`find()` escolhendo pela ordem do SO:** desempata pelo título exato (a instância original);
+  sem desempate, `AmbiguousWindowError`. Novo `pid=` no `WindowManager`.
+- **Gates calados:** fora do Windows ou com janela sem `_hWnd` continuam deixando passar, mas
+  avisam no log uma vez por proteção. `owns_point`: PID 0 nunca vira "mesmo processo".
+- **Erro real no lugar do sintoma:** template ausente/ilegível/em caminho com acento (o `cv2.imread`
+  devolvia `None` calado) vira erro na leitura; o template é lido uma vez, por bytes. Cor com número
+  errado de canais vira `ValueError`. Processo sem DPI awareness vira aviso no log.
+
+### Adicionado (05/10/2026, qualidade verificável)
+
+- Testes do `PyAutoGuiDriver` (0% → 92%) com dublês que gravam cada gesto; `owns_point` testado por
+  dentro; testes `win32_real` (só leitura) contra o Windows de verdade. Cobertura total 79% → 95%.
+- `[tool.ruff]` próprio (regras de bug: `E9`, `F`, `B`, `BLE`, `S110`), piso de cobertura de 90%,
+  marcador `win32_real`, extra `dev` com `pytest-cov` e `ruff`, CI em Windows (Python 3.10–3.12).
+
 ### Adicionado (05/10/2026, ARCHITECTURE.md §9.13: primeira fatia do driver de UIA, marco v0.6)
 
 - `drivers.uia.UiaWindow` (extra `[uia]`): janela de topo por título/classe, opcionalmente presa a um PID;

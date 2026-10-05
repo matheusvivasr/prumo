@@ -160,3 +160,10 @@ fechou inteiro):
 - **v0.7 em curso de fato** — já são três aplicações consumindo (emulador da HP
   Prime, Connectivity Kit, painel-nativo da Tina), e foi delas que vieram as
   peças do §9.12.
+- **v0.9 puxado e feito no que depende só do prumo** (05/10/2026, §9.14) —
+  auditoria de falhas calada: botão/tecla preso no SO, recuperação disputando o
+  mouse, `find()` por sorte, gates mudos, erro escondido atrás de sintoma.
+  Lint de bug, piso de 90% de cobertura (está em 95%), testes `win32_real` e CI
+  em Windows. **Falta o que exige o consumidor ao vivo**: ligar a trava de "o
+  usuário assumiu" no `hp-prime-automation` e migrar o hp-prime-CK e o e2e da
+  Tina para as peças do §9.12–§9.13.
