@@ -22,7 +22,14 @@ class SoftkeyRow:
     y_offset: int
     geometry_key: Callable[[], WindowGeometry]
 
+    def __post_init__(self) -> None:
+        if isinstance(self.count, bool) or not isinstance(self.count, int) or self.count < 1:
+            raise ValueError(f"count precisa ser um inteiro >= 1 (veio {self.count!r})")
+
     def resolve(self, index: int) -> Tuple[int, int]:
+        # 2.5 passaria pela faixa e cairia na DIVISA entre duas teclas; True viraria F2
+        if isinstance(index, bool) or not isinstance(index, int):
+            raise ValueError(f"índice de softkey precisa ser inteiro (veio {index!r})")
         if not 0 <= index < self.count:
             raise ValueError(f"índice {index} fora do intervalo [0, {self.count})")
         geometry = self.geometry_key()

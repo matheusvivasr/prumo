@@ -7,6 +7,8 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ### Corrigido (05/10/2026, auditoria semântica: configuração)
 
+- `SoftkeyRow.resolve(2.5)` passava pela checagem de faixa e caía na DIVISA exata entre F3 e F4;
+  `True` virava F2. Índice e `count` agora têm de ser inteiros de verdade (`count >= 1`, na construção).
 - `"x": true` no mapa era aceito como coordenada 1.0 (bool é int em Python) — o canto da janela, calado.
   Coordenada agora tem de ser número de verdade.
 - `"x": "0.5"` estourava `TypeError` cru, sem dizer qual locator; agora é `LocatorError` com o nome.

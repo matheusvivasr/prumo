@@ -38,3 +38,17 @@ def test_resolve_rejects_out_of_range_index():
 
     with pytest.raises(ValueError):
         row.resolve(-1)
+
+
+@pytest.mark.parametrize("indice", [2.5, True, "3"], ids=["meio", "bool", "texto"])
+def test_a_non_integer_index_is_refused_instead_of_clicking_between_keys(indice):
+    # 2.5 resolvia para a divisa exata entre F3 e F4
+    linha = SoftkeyRow(count=6, y_offset=40, geometry_key=lambda: WindowGeometry(0, 0, 600, 800))
+    with pytest.raises(ValueError, match="inteiro"):
+        linha.resolve(indice)
+
+
+@pytest.mark.parametrize("count", [0, -1, 2.0, True])
+def test_a_row_needs_at_least_one_key(count):
+    with pytest.raises(ValueError, match="count"):
+        SoftkeyRow(count=count, y_offset=40, geometry_key=lambda: WindowGeometry(0, 0, 600, 800))
