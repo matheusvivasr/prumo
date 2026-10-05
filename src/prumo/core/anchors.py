@@ -61,6 +61,14 @@ class AnchorZone:
         locate: Callable[[str], Optional[Tuple[float, float]]],
         geometry_key: Callable[[], object],
     ):
+        l1, l2 = anchor1.locator, anchor2.locator
+        if l1.x == l2.x or l1.y == l2.y:
+            # erro de configuração: falha ao montar, não depois de gastar duas buscas de imagem
+            raise LocatorError(
+                "as duas âncoras de uma AnchorZone precisam ter x E y "
+                "diferentes entre si (cantos opostos) — frações iguais "
+                "não resolvem o sistema escala+translação"
+            )
         self._anchor1 = anchor1
         self._anchor2 = anchor2
         self._locate = locate
@@ -89,18 +97,30 @@ class AnchorZone:
             p1x, p1y = self._locate_or_raise(self._anchor1)
             p2x, p2y = self._locate_or_raise(self._anchor2)
             l1, l2 = self._anchor1.locator, self._anchor2.locator
-            if l1.x == l2.x or l1.y == l2.y:
-                raise LocatorError(
-                    "as duas âncoras de uma AnchorZone precisam ter x E y "
-                    "diferentes entre si (cantos opostos) — frações iguais "
-                    "não resolvem o sistema escala+translação"
-                )
             ax = (p2x - p1x) / (l2.x - l1.x)
             bx = p1x - ax * l1.x
             ay = (p2y - p1y) / (l2.y - l1.y)
             by = p1y - ay * l1.y
+            if ax <= 0 or ay <= 0:
+                # Com 2 pontos o sistema fecha EXATO com qualquer par — não há
+                # redundância para notar uma âncora casada no lugar errado. Mas
+                # fração e pixel crescem no mesmo sentido: escala <= 0 só sai de
+                # uma âncora achada do lado errado da outra, e todo clique cairia
+                # espelhado. Isso é detectável, então é erro.
+                raise LocatorError(
+                    f"âncoras inconsistentes: '{self._anchor1.template_path}' em ({p1x:.0f}, {p1y:.0f}) e "
+                    f"'{self._anchor2.template_path}' em ({p2x:.0f}, {p2y:.0f}) dão escala "
+                    f"x={ax:.1f}, y={ay:.1f} (precisa ser > 0) — uma delas casou no lugar errado"
+                )
             self._cache = (ax, bx, ay, by)
         return self._cache
+
+    def invalidate(self) -> None:
+        """Força medir as âncoras de novo na próxima resolução. O cache só
+        expira sozinho quando `geometry_key()` muda; use isto depois de algo
+        que troca o LAYOUT sem mexer na geometria da janela (troca de modo,
+        tema, zoom interno)."""
+        self._cache = None
 
     def resolve(self, locator: PointLocator) -> Tuple[int, int]:
         ax, bx, ay, by = self._transform()

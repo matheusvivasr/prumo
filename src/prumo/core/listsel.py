@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, List, NoReturn, Optional, Sequence
 
 from prumo.core.exceptions import AutomationError, UnexpectedStateError
 from prumo.drivers.ocr import similarity
@@ -79,8 +79,20 @@ class ListSelector:
         return scored[0][1]
 
     def select(self, name: str) -> int:
-        """Move o destaque até `name` e devolve quantas teclas gastou."""
+        """Move o destaque até `name` e devolve quantas teclas gastou.
+
+        Com o alvo fora da parte visível, rola às cegas: para baixo e, se a
+        lista parar de mudar (chegou ao fim sem achar), para CIMA — o alvo
+        estava acima do trecho visível. Até 05/10/2026 só descia: com a lista
+        aberta no meio, ficava apertando "baixo" no fim até esgotar os passos e
+        dizia "não achei" de um item que existia. Parou de mudar também no
+        topo: percorreu a lista toda, e "não achei" é verdade — sai na hora.
+        "Parou de mudar" exige DUAS leituras iguais seguidas: uma só pode ser
+        o app ainda redesenhando."""
         moves = 0
+        rolar = self.move_down
+        anterior: Optional[tuple] = None
+        sem_mudar = 0
         for _ in range(self.max_steps):
             rows: List[Row] = list(self.read_rows())
             target = self.target(rows, name)
@@ -89,10 +101,21 @@ class ListSelector:
                 return moves
             if target is not None and current is not None:
                 (self.move_down if target.cy > current.cy else self.move_up)()
+                anterior, sem_mudar = None, 0
             else:
-                self.move_down()  # alvo fora da parte visível (ou sem destaque): rola
+                retrato = tuple((r.text, r.selected) for r in rows)
+                sem_mudar = sem_mudar + 1 if retrato == anterior else 0
+                anterior = retrato
+                if sem_mudar >= 2:
+                    if rolar is self.move_up:
+                        self._falhou(name, f"percorri a lista nos dois sentidos e não há '{name}'")
+                    rolar, anterior, sem_mudar = self.move_up, None, 0
+                rolar()
             moves += 1
             time.sleep(self.settle_s)
+        self._falhou(name, f"não achei/selecionei '{name}' em {self.max_steps} passos")
+
+    def _falhou(self, name: str, motivo: str) -> NoReturn:
         if self.on_fail:
             self.on_fail(f"lista_sem_{name}")
-        raise ItemNotFoundError(f"não achei/selecionei '{name}' em {self.max_steps} passos")
+        raise ItemNotFoundError(motivo)

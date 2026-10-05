@@ -5,6 +5,16 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido (05/10/2026, auditoria semântica: âncoras e seleção por nome)
+
+- `ListSelector.select` só rolava para BAIXO com o alvo fora da parte visível: com a lista aberta no
+  meio, apertava "baixo" no fim até esgotar os passos e dizia "não achei" de um item que existia
+  (acima). Agora dá a volta quando a lista para de mudar (duas leituras iguais seguidas — uma só pode
+  ser o app redesenhando) e, percorrida nos dois sentidos, falha na hora.
+- `AnchorZone`: escala <= 0 (uma âncora casada do lado errado da outra) virava clique ESPELHADO; agora
+  é `LocatorError`. Frações iguais nas duas âncoras são recusadas ao montar, não depois de duas buscas
+  de imagem. Novo `invalidate()` para trocas de layout que não mexem na geometria da janela.
+
 ### Corrigido (05/10/2026, §12 e §9.14 regra 9: popup tratado tem de sair)
 
 - `InterruptionManager.check_and_handle` chamava `handle()` e seguia sem conferir: um "OK" que não

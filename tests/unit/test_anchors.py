@@ -58,14 +58,36 @@ def test_anchor_not_found_raises_locator_error_without_guessing():
         zone.resolve(PointLocator(x=0.5, y=0.5))
 
 
-def test_anchors_with_same_x_or_y_are_rejected():
+def test_anchors_with_same_x_or_y_are_rejected_when_the_zone_is_built():
+    # erro de configuração: recusado ao montar, antes de gastar qualquer busca de imagem
+    buscas = []
     anchor1 = Anchor(locator=PointLocator(x=0.5, y=0.1), template_path="a.png")
     anchor2 = Anchor(locator=PointLocator(x=0.5, y=0.9), template_path="b.png")  # mesmo x
-    zone = AnchorZone(
-        anchor1, anchor2,
-        locate=lambda p: (0.0, 0.0),
-        geometry_key=lambda: "g1",
-    )
 
-    with pytest.raises(LocatorError):
+    with pytest.raises(LocatorError, match="x E y"):
+        AnchorZone(anchor1, anchor2, locate=lambda p: buscas.append(p), geometry_key=lambda: "g1")
+    assert buscas == []
+
+
+def test_an_anchor_matched_on_the_wrong_side_is_an_error_not_a_mirrored_click():
+    # "b" (fração 0.9) achada À ESQUERDA de "a" (fração 0.1): escala negativa,
+    # todo clique cairia espelhado. Com 2 pontos o sistema fecha exato — só a
+    # escala denuncia.
+    zone, _ = _zone({"a.png": (900.0, 200.0), "b.png": (100.0, 800.0)})
+    with pytest.raises(LocatorError, match="casou no lugar errado"):
         zone.resolve(PointLocator(x=0.5, y=0.5))
+
+
+def test_both_anchors_on_the_same_pixel_is_an_error():
+    zone, _ = _zone({"a.png": (400.0, 400.0), "b.png": (400.0, 400.0)})
+    with pytest.raises(LocatorError, match="escala"):
+        zone.resolve(PointLocator(x=0.5, y=0.5))
+
+
+def test_invalidate_forces_a_new_measurement_with_the_same_geometry():
+    # troca de modo/tema sem mexer na geometria: o cache por geometria não percebe
+    zone, calls = _zone({"a.png": (100.0, 200.0), "b.png": (900.0, 800.0)})
+    zone.resolve(PointLocator(x=0.5, y=0.5))
+    zone.invalidate()
+    zone.resolve(PointLocator(x=0.5, y=0.5))
+    assert calls == ["a.png", "b.png", "a.png", "b.png"]

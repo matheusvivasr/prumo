@@ -78,3 +78,40 @@ def test_inexistente_estoura_o_limite_e_chama_on_fail():
     with pytest.raises(ItemNotFoundError):
         seletor(l, max_steps=5, on_fail=falhas.append).select("Nao_existe")
     assert falhas == ["lista_sem_Nao_existe"]
+
+
+def test_alvo_acima_do_trecho_visivel_e_achado_dando_a_volta():
+    # a lista abriu no MEIO (destaque num item de baixo): o alvo está acima da
+    # parte visível. Antes: só descia, batia no fim e dizia "não achei".
+    itens = [f"Prog_{c}" for c in "abcdefghij"]
+    l = ListaFalsa(itens, visiveis=3, destaque=6)
+    teclas = seletor(l).select("Prog_b")
+    assert l.itens[l.i] == "Prog_b" and teclas > 0
+    assert "up" in l.teclas
+
+
+def test_lista_percorrida_nos_dois_sentidos_sem_o_item_sai_antes_do_limite():
+    l = ListaFalsa([f"Prog_{c}" for c in "abcdef"], visiveis=3, destaque=2)
+    falhas = []
+    with pytest.raises(ItemNotFoundError, match="dois sentidos"):
+        seletor(l, max_steps=60, on_fail=falhas.append).select("Nao_existe")
+    assert len(l.teclas) < 60 and falhas == ["lista_sem_Nao_existe"]
+
+
+def test_uma_leitura_repetida_so_nao_inverte_o_sentido():
+    # app lento: a lista não redesenhou a tempo UMA vez — não é fim de lista
+    itens = [f"Prog_{c}" for c in "abcdefgh"]
+    l = ListaFalsa(itens, visiveis=3)
+    lento = {"vezes": 1}
+    original = l.down
+
+    def down_lento():
+        if lento["vezes"]:
+            lento["vezes"] -= 1
+            l.teclas.append("down")     # a tecla saiu, mas a tela não mudou ainda
+            return
+        original()
+
+    sel = ListSelector(read_rows=l.rows, move_down=down_lento, move_up=l.up, settle_s=0)
+    sel.select("Prog_g")
+    assert l.itens[l.i] == "Prog_g" and "up" not in l.teclas
