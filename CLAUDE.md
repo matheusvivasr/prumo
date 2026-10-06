@@ -41,11 +41,11 @@ biblioteca, não manter uma segunda cópia da lógica.
 
 ## Convenções específicas
 
-- **Versionamento:** segue o esquema do `pyproject.toml` (`version = "0.1.0"` hoje —
-  Core, Config, Estado, Interrupções, Recuperação, Logging e MockDriver prontos e
-  testados; falta a extração do `hp-prime-automation`, Etapas 8-11 do
-  [ROADMAP.md](ROADMAP.md), e testes de integração contra GUI real). As versões
-  `v0.1`–`v1.0` do roadmap marcam etapas de desenvolvimento, não são releases
+- **Versionamento:** o número mora num lugar só, `__version__` em
+  `src/prumo/__init__.py` — o `pyproject.toml` o lê de lá (`dynamic = ["version"]`).
+  **Não escreva o número em nenhum outro arquivo** (README, ROADMAP, este): mudar de
+  versão é editar essa linha e abrir a seção correspondente no `CHANGELOG.md`. As
+  versões `v0.1`–`v1.0` do roadmap marcam etapas de desenvolvimento, não são releases
   automáticas — só bump quando o critério de conclusão da etapa (ARCHITECTURE.md §21)
   estiver satisfeito.
 - **Testes:** todo o `core/` e `drivers/` (exceto o driver real de PyAutoGUI) deve

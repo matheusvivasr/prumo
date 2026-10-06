@@ -149,7 +149,7 @@ v1.0  Framework estável
 ```
 
 **A ordem acima é plano, não fila** — os marcos andam quando um consumidor real
-puxa. Estado em 05/10/2026 (a versão declarada segue `0.1.0`: nenhum marco
+puxa. Estado em 05/10/2026 (a versão declarada não subiu: nenhum marco
 fechou inteiro):
 
 - **v0.5 parcial** — OCR opcional (`drivers/ocr`, `core/listsel`, §9.11).

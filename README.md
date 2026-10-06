@@ -34,8 +34,8 @@ que o projeto entrega — detalhes em [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Estado do projeto
 
-Versão declarada `0.1.0` (as versões marcam etapas do [ROADMAP.md](ROADMAP.md),
-não releases). Além do core (locators, janela, driver, estados, interrupções,
+A versão está em `prumo.__version__` (as versões marcam etapas do
+[ROADMAP.md](ROADMAP.md), não releases). Além do core (locators, janela, driver, estados, interrupções,
 recuperação, logging, `MockDriver`), já existem: passo confirmado com ritmo
 humano e soltura confirmada no SO, gate de oclusão e de primeiro plano por
 processo, trava de "o usuário assumiu" (ESC / mouse mexido), OCR opcional e a
