@@ -96,6 +96,7 @@ class FakeKeyboard:
         self.calls = []
         self.presas = set()
         self.nunca_solta = set()
+        self.ganchos = {}
 
     def press(self, k):
         self.calls.append(("press", k))
@@ -114,6 +115,20 @@ class FakeKeyboard:
 
     def write(self, s):
         self.calls.append(("write", s))
+
+    # o gancho (keyboard.on_press_key / unhook), como o SO o chamaria
+    def on_press_key(self, key, callback, suppress=False):
+        handle = object()
+        self.ganchos[handle] = (key, callback, suppress)
+        return handle
+
+    def unhook(self, handle):
+        del self.ganchos[handle]
+
+    def apertar_fisico(self, key):
+        for k, cb, _ in list(self.ganchos.values()):
+            if k == key:
+                cb(object())
 
 
 @pytest.fixture
@@ -373,3 +388,22 @@ def test_release_confirmation_also_works_without_pacing(ambiente):
     # o mypy apontou: _confirmar_soltura_mouse lia self.pacing.release_timeout_s sem conferir None
     PyAutoGuiDriver(pacing=None)._confirmar_soltura_mouse("right")
     assert ambiente.soltura == [("mouse_right",)]
+
+
+# --- registrador de toques (gancho do keyboard) -----------------------------
+
+
+def test_watch_key_hooks_the_key_without_swallowing_it_and_unhooks_on_close(ambiente):
+    latch = PyAutoGuiDriver(pacing=RAPIDO).watch_key("esc")
+    ((tecla, _, engole),) = ambiente.kb.ganchos.values()
+    assert tecla == "esc" and engole is False          # o ESC continua chegando ao app
+
+    assert latch.fired() is False
+    ambiente.kb.apertar_fisico("esc")                  # o SO chama o gancho na thread dele
+    assert latch.fired() is True
+    latch.clear()
+    assert latch.fired() is False
+
+    latch.close()
+    latch.close()                                      # idempotente
+    assert ambiente.kb.ganchos == {}

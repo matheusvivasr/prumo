@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -291,3 +292,32 @@ class PyAutoGuiDriver(InputDriver):
 
     def is_key_down(self, key: str) -> bool:
         return bool(self._keyboard.is_pressed(key))
+
+    def watch_key(self, key: str) -> "_LatchDeGancho":
+        """Registrador de toques por gancho de teclado do SO (`keyboard`):
+        cada aperto marca o registrador na hora, mesmo que a tecla já tenha
+        sido solta quando a trava consultar (§9.12)."""
+        return _LatchDeGancho(self._keyboard, key)
+
+
+class _LatchDeGancho:
+    """`KeyLatch` sobre `keyboard.on_press_key`. O callback roda na thread do
+    gancho do `keyboard`; um `threading.Event` faz a ponte com a thread que
+    consulta. `close()` solta o gancho — sem isso ele vive até o processo
+    acabar."""
+
+    def __init__(self, keyboard, key: str):
+        self._keyboard = keyboard
+        self._disparou = threading.Event()
+        self._gancho = keyboard.on_press_key(key, lambda _evento: self._disparou.set(), suppress=False)
+
+    def fired(self) -> bool:
+        return self._disparou.is_set()
+
+    def clear(self) -> None:
+        self._disparou.clear()
+
+    def close(self) -> None:
+        if self._gancho is not None:
+            self._keyboard.unhook(self._gancho)
+            self._gancho = None

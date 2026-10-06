@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "prumo"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Camada de abstração reutilizável para automação determinística de interfaces gráficas"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,6 +39,13 @@ uia = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "prumo.__version__" }
+
+# py.typed: quem usa o prumo enxerga os tipos que o mypy confere aqui
+[tool.setuptools.package-data]
+prumo = ["py.typed"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

@@ -101,3 +101,17 @@ def test_real_windows_ocr_reads_accented_text_and_normalize_folds_it():
     except UnexpectedStateError as exc:     # Windows sem o pacote de OCR pt-BR (ex.: runner em inglês)
         pytest.skip(str(exc))
     assert [normalize(tl.text) for tl in linhas] == ["funcaoconfiguracoes"]
+
+
+def test_geometry_and_is_alive_of_a_real_window():
+    # só leitura: nada aqui move, ativa ou redimensiona a janela de ninguém
+    from prumo.drivers.window import WindowManager
+
+    w = _janela_visivel()
+    m = WindowManager(title=w.title, exact=True)
+    assert m.is_alive() is False                         # nada achado ainda: não finge que está viva
+    m._window = w
+    g = m.geometry()
+    assert (g.left, g.top, g.width, g.height) == (w.left, w.top, w.width, w.height)
+    assert g.width > 0 and g.height > 0
+    assert m.is_alive() is True

@@ -607,12 +607,21 @@ framework. Quatro peças subiram:
   apertada ou se o cursor andou mais que `tolerance_px` (padrão: 8) desde o
   `mark()` feito depois do gesto anterior. No `GUIAutomator` é **opt-in**
   (`guard=TakeoverGuard(driver)`), e a checagem vem **antes** do `activate()`
-  — quem acabou de pegar o mouse não pode ter o foco roubado de volta. Dois
-  limites declarados: (1) a tecla é lida no instante da checagem — abortar é
-  **segurar** ESC, um toque entre dois gestos passa despercebido; (2) todo
-  gesto precisa passar pelo caminho guardado ou chamar `mark()` depois — um
-  `driver.move_to` solto parece, para a trava, a mão do usuário. Exige do
-  driver `cursor_position()` e `is_key_down()` (contrato do §9).
+  — quem acabou de pegar o mouse não pode ter o foco roubado de volta.
+  **ESC vale tocado, não só segurado** (desde 05/10/2026): o driver registra
+  cada toque no instante em que acontece (`InputDriver.watch_key`; no
+  `PyAutoGuiDriver`, um gancho do `keyboard`, o mesmo do `add_hotkey("esc")`
+  que o `calibrate.py` do hp-prime-automation usa para parar). Um toque gera
+  uma parada (é consumido); o ESC que a própria automação manda é descontado
+  (`own_keys_sent`, chamado pelo `GUIAutomator` em `press`/`hotkey`); `forget()`
+  também zera os toques. Driver sem gancho cai no comportamento antigo (só a
+  tecla segurada) — degrada, não quebra. **Limite de validação:** no ambiente
+  em que foi escrito, o Windows não entregava eventos a ganchos de teclado
+  (nem o Shift injetado), então o toque está provado com dublês, não ao vivo.
+  Limite de uso: todo gesto precisa passar pelo caminho guardado ou chamar
+  `mark()` depois — um `driver.move_to` solto parece, para a trava, a mão do
+  usuário (o `GUIAutomator` tem `move_to` e `drag` para isso). Exige do driver
+  `cursor_position()` e `is_key_down()` (contrato do §9).
 - **Espera genérica — `core.wait.poll_until(cond, timeout=, what=)`.** O
   `StateManager.wait_until` espera um `GUIState` e os `wait_for_template*`
   esperam imagem; faltava "chame isto até dar verdadeiro". Exceção dentro de

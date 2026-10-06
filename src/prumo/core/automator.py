@@ -170,6 +170,7 @@ class GUIAutomator:
         self.precheck(f"press {key}")
         logger.info("op=%s action=press(%s)", op, key)
         self.driver.press(key)
+        self._own_keys_sent(key)
         self._mark()
 
     def hotkey(self, *keys: str) -> None:
@@ -177,7 +178,13 @@ class GUIAutomator:
         self.precheck(f"hotkey {'+'.join(keys)}")
         logger.info("op=%s action=hotkey(%s)", op, "+".join(keys))
         self.driver.hotkey(*keys)
+        self._own_keys_sent(*keys)
         self._mark()
+
+    def _own_keys_sent(self, *keys: str) -> None:
+        # o ESC que a PRÓPRIA automação manda não é o usuário pedindo para parar
+        if self.guard is not None:
+            self.guard.own_keys_sent(*keys)
 
     def write(self, text: str, *, delay: float = 0.0) -> None:
         op = self._next_op()

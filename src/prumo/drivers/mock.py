@@ -17,8 +17,8 @@ from prumo.drivers.base import InputDriver
 class MockDriver(InputDriver):
     """`cursor` acompanha os gestos (clique, movimento e fim do arrasto o
     levam junto, como no SO); um teste simula "o usuário mexeu no mouse"
-    atribuindo `cursor` direto, e "segurou ESC" pondo a tecla em
-    `keys_down`."""
+    atribuindo `cursor` direto, "segurou ESC" pondo a tecla em `keys_down`,
+    e "tocou ESC" (apertou e soltou entre duas consultas) com `tap("esc")`."""
 
     calls: List[Tuple[str, Any]] = field(default_factory=list)
     screenshot_return: Any = None
@@ -30,6 +30,20 @@ class MockDriver(InputDriver):
     # consultas de estado de entrada (as da trava, §9.12) ficam FORA de `calls`:
     # são bookkeeping, não ações — ligar a trava não muda a sequência de ações
     probes: List[Tuple[str, Any]] = field(default_factory=list)
+    _latches: List["MockLatch"] = field(default_factory=list, repr=False)
+
+    def watch_key(self, key: str) -> "MockLatch":
+        self.probes.append(("watch_key", key))
+        latch = MockLatch(key)
+        self._latches.append(latch)
+        return latch
+
+    def tap(self, key: str) -> None:
+        """Simula um toque do usuário: aperta e solta entre duas consultas —
+        `is_key_down` não vê nada, só os registradores de `watch_key`."""
+        for latch in self._latches:
+            if latch.key == key and not latch.closed:
+                latch._disparou = True
 
     def click(self, x: int, y: int, *, button: str = "left", clicks: int = 1) -> None:
         self.calls.append(("click", (x, y, button, clicks)))
@@ -41,9 +55,12 @@ class MockDriver(InputDriver):
 
     def press(self, key: str) -> None:
         self.calls.append(("press", key))
+        self.tap(key)            # como o gancho real: ele também vê a tecla que a automação injeta
 
     def hotkey(self, *keys: str) -> None:
         self.calls.append(("hotkey", keys))
+        for k in keys:
+            self.tap(k)
 
     def write(self, text: str, *, delay: float = 0.0) -> None:
         self.calls.append(("write", (text, delay)))
@@ -84,3 +101,21 @@ class MockDriver(InputDriver):
     def actions(self) -> List[str]:
         """Nomes das ações registradas, na ordem — útil em asserts de teste."""
         return [name for name, _ in self.calls]
+
+
+@dataclass
+class MockLatch:
+    """`KeyLatch` do `MockDriver`: dispara com `MockDriver.tap(key)`."""
+
+    key: str
+    _disparou: bool = False
+    closed: bool = False
+
+    def fired(self) -> bool:
+        return self._disparou
+
+    def clear(self) -> None:
+        self._disparou = False
+
+    def close(self) -> None:
+        self.closed = True

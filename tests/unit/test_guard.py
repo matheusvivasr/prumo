@@ -223,3 +223,70 @@ def test_drag_onto_another_app_on_purpose_skips_only_the_occlusion_gate():
     driver.keys_down.add("esc")
     with pytest.raises(UserTakeoverError):     # a trava continua valendo
         automator.drag((3, 3), (1363, 765), occlusion_gate=False)
+
+
+# --- ESC por TOQUE (registrador do driver) --------------------------------
+
+
+def test_a_quick_tap_of_esc_between_gestures_stops_the_automation():
+    # o gesto instintivo: tocar ESC (apertar e soltar), não segurar
+    driver = MockDriver()
+    guard = TakeoverGuard(driver)
+    driver.click(300, 300)
+    guard.mark()
+    driver.tap("esc")
+    assert driver.is_key_down("esc") is False      # já foi solto — antes isso passava batido
+    with pytest.raises(UserTakeoverError, match="ESC"):
+        guard.check("próximo gesto")
+
+
+def test_one_tap_is_one_stop():
+    driver = MockDriver()
+    guard = TakeoverGuard(driver)
+    driver.tap("esc")
+    with pytest.raises(UserTakeoverError):
+        guard.check()
+    guard.check()                                    # consumido: não dispara de novo sozinho
+
+
+def test_the_automations_own_esc_is_not_the_user_stopping_it():
+    # a automação manda ESC pelo teclado (fechar menu); o gancho vê, mas é NOSSO
+    driver = MockDriver()
+    automator, _ = make_automator(driver, guard=TakeoverGuard(driver))
+    automator.press("esc")
+    automator.hotkey("escape")                       # sinônimo
+    automator.click("ok")                            # não acusa
+    assert driver.actions() == ["press", "hotkey", "click"]
+
+
+def test_forget_also_drops_taps_made_during_a_manual_interval():
+    driver = MockDriver()
+    guard = TakeoverGuard(driver)
+    driver.tap("esc")                                # ele usou ESC no intervalo manual
+    guard.forget()
+    guard.check()
+
+
+def test_without_an_abort_key_nothing_is_watched():
+    driver = MockDriver()
+    TakeoverGuard(driver, abort_key=None).check()
+    assert ("watch_key", "esc") not in driver.probes
+
+
+def test_close_releases_the_watcher():
+    driver = MockDriver()
+    guard = TakeoverGuard(driver)
+    guard.close()
+    assert driver._latches[0].closed is True
+
+
+def test_a_driver_without_a_hook_falls_back_to_the_held_key_only():
+    # InputDriver.watch_key padrão: sem gancho, vale só a tecla segurada (o comportamento antigo)
+    from prumo.drivers.base import InputDriver
+
+    driver = MockDriver()
+    latch = InputDriver.watch_key(driver, "esc")
+    driver.tap("esc")
+    assert latch.fired() is False                    # toque não aparece sem gancho...
+    driver.keys_down.add("esc")
+    assert latch.fired() is True                     # ...segurada, sim

@@ -5,6 +5,19 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Unreleased]
 
+### Corrigido (05/10/2026, §9.12: ESC vale tocado; acabamento de biblioteca)
+
+- **A trava só pegava ESC SEGURADO**; o gesto instintivo é tocar, e um toque entre dois gestos
+  passava batido (conferido: a trava antiga deixava a automação seguir). Agora o driver registra
+  cada toque (`InputDriver.watch_key` → `KeyLatch`; no `PyAutoGuiDriver`, gancho do `keyboard`). Um
+  toque, uma parada; o ESC que a própria automação manda é descontado (`TakeoverGuard.own_keys_sent`,
+  chamado pelo `GUIAutomator`); `forget()` zera os toques; driver sem gancho degrada para "só
+  segurado". Validado com dublês: no ambiente de desenvolvimento o Windows não entregava eventos a
+  ganchos de teclado — fica para a validação ao vivo.
+- `py.typed` (quem usa o prumo enxerga os tipos), `prumo.__version__` como fonte única da versão
+  (o `pyproject` a lê, `dynamic = ["version"]`), Python 3.13 no CI, testes `win32_real` de
+  geometria e `is_alive`.
+
 ### Corrigido (05/10/2026, auditoria semântica: configuração)
 
 - `SoftkeyRow.resolve(2.5)` passava pela checagem de faixa e caía na DIVISA exata entre F3 e F4;
